@@ -1,42 +1,65 @@
 import { supabase } from './supabase';
 import { Patient, Appointment, ClinicalRecord, TreatmentType } from '../types';
 
+// Utility: map DB snake_case fields to app camelCase
+const mapPatient = (row: any): Patient => ({
+  ...row,
+  medicalHistory: row?.medical_history ?? row?.medicalHistory,
+  created_at: row?.created_at
+});
+
 export const api = {
   patients: {
     getAll: async (): Promise<Patient[]> => {
       try {
         const { data, error } = await supabase
           .from('patients')
-          .select('*')
+          .select('id, name, email, phone, balance, medical_history, created_at')
           .order('name');
         
         if (error) throw error;
-        return data || [];
+        return (data || []).map(mapPatient);
       } catch (err) {
         console.warn("Error fetching patients:", err);
         return []; // Return empty array instead of crashing
       }
     },
     create: async (data: Partial<Patient>): Promise<Patient> => {
+      const payload = {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        balance: data.balance ?? 0,
+        medical_history: data.medicalHistory || null
+      };
+
       const { data: result, error } = await supabase
         .from('patients')
-        .insert(data)
+        .insert(payload)
         .select()
         .single();
 
       if (error) throw new Error(error.message);
-      return result;
+      return mapPatient(result);
     },
     update: async (id: string, data: Partial<Patient>): Promise<Patient> => {
+      const payload = {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        balance: data.balance,
+        medical_history: data.medicalHistory
+      };
+
       const { data: result, error } = await supabase
         .from('patients')
-        .update(data)
+        .update(payload)
         .eq('id', id)
         .select()
         .single();
 
       if (error) throw new Error(error.message);
-      return result;
+      return mapPatient(result);
     }
   },
 
