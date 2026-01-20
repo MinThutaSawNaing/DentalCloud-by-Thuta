@@ -9,6 +9,15 @@ export interface Patient {
   created_at?: string;
 }
 
+export interface PatientFile {
+  path: string;           // storage path e.g. patientId/filename.ext
+  name: string;           // file name
+  size: number;           // bytes
+  type: string;           // mime type
+  uploaded_at?: string;   // storage timestamp
+  url: string;            // public URL for download/view
+}
+
 export interface TreatmentType {
   id: string; // Database ID
   name: string; // Display name (e.g., "Root Canal")

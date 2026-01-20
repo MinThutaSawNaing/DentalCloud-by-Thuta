@@ -15,7 +15,8 @@ import {
   Patient, 
   Appointment, 
   TreatmentType, 
-  ClinicalRecord
+  ClinicalRecord,
+  PatientFile
 } from './types';
 import { TREATMENT_CATEGORIES } from './constants';
 import { api } from './services/api';
@@ -38,8 +39,10 @@ const App: React.FC = () => {
   const [treatmentHistory, setTreatmentHistory] = useState<ClinicalRecord[]>([]); 
   const [globalRecords, setGlobalRecords] = useState<ClinicalRecord[]>([]); 
   const [treatmentTypes, setTreatmentTypes] = useState<TreatmentType[]>([]);
+  const [patientFiles, setPatientFiles] = useState<PatientFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   
   // -- Selection State --
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -90,6 +93,12 @@ const App: React.FC = () => {
       setTreatmentHistory(history);
     } catch (e) {
       setTreatmentHistory([]);
+    }
+    try {
+      const files = await api.files.list(patient.id);
+      setPatientFiles(files);
+    } catch (e) {
+      setPatientFiles([]);
     }
     setCurrentView('finance');
   };
@@ -193,6 +202,38 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUploadFiles = async (files: FileList | File[]) => {
+    if (!selectedPatient) return;
+    const uploadList = Array.from(files);
+    if (uploadList.length === 0) return;
+    setUploading(true);
+    try {
+      const uploaded = await Promise.all(uploadList.map(f => api.files.upload(selectedPatient.id, f)));
+      setPatientFiles(prev => [...uploaded, ...prev]);
+    } catch (err: any) {
+      alert(err.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteFile = async (path: string) => {
+    if (!selectedPatient) return;
+    try {
+      await api.files.remove(path);
+      setPatientFiles(prev => prev.filter(f => f.path !== path));
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete file');
+    }
+  };
+
+  const handleClosePatient = () => {
+    setSelectedPatient(null);
+    setSelectedTeeth([]);
+    setTreatmentHistory([]);
+    setPatientFiles([]);
+  };
+
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
@@ -254,10 +295,14 @@ const App: React.FC = () => {
                 selectedTeeth={selectedTeeth} 
                 treatmentTypes={treatmentTypes} 
                 treatmentHistory={treatmentHistory}
+                patientFiles={patientFiles}
+                uploadingFiles={uploading}
+                onUploadFiles={handleUploadFiles}
+                onDeleteFile={handleDeleteFile}
                 onToggleTooth={(id) => selectedTeeth.includes(id) ? setSelectedTeeth(selectedTeeth.filter(t => t !== id)) : setSelectedTeeth([...selectedTeeth, id])}
                 onTreatmentSubmit={handleTreatmentSubmit}
                 onPaymentRequest={(amount) => { setPaymentAmount(amount); setShowPaymentModal(true); }}
-                onClosePatient={() => setSelectedPatient(null)}
+                onClosePatient={handleClosePatient}
                 onOpenDirectory={() => setCurrentView('patients')}
             />}
           </Suspense>

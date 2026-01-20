@@ -1,18 +1,22 @@
 import React from 'react';
-import { User, X } from 'lucide-react';
+import { User, X, Upload, Trash2, FileText } from 'lucide-react';
 import { ToothSelector } from './ToothSelector';
-import { Patient, TreatmentType, ClinicalRecord } from '../types';
+import { Patient, TreatmentType, ClinicalRecord, PatientFile } from '../types';
 
 interface ClinicalViewProps {
   selectedPatient: Patient | null;
   selectedTeeth: number[];
   treatmentTypes: TreatmentType[];
   treatmentHistory: ClinicalRecord[];
+  patientFiles: PatientFile[];
+  uploadingFiles: boolean;
   onToggleTooth: (id: number) => void;
   onTreatmentSubmit: (t: TreatmentType) => void;
   onPaymentRequest: (amount: number) => void;
   onClosePatient: () => void;
   onOpenDirectory: () => void;
+  onUploadFiles: (files: FileList | File[]) => void;
+  onDeleteFile: (path: string) => void;
 }
 
 const ClinicalView: React.FC<ClinicalViewProps> = ({
@@ -20,12 +24,43 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
   selectedTeeth,
   treatmentTypes,
   treatmentHistory,
+  patientFiles,
+  uploadingFiles,
   onToggleTooth,
   onTreatmentSubmit,
   onPaymentRequest,
   onClosePatient,
-  onOpenDirectory
-}) => (
+  onOpenDirectory,
+  onUploadFiles,
+  onDeleteFile
+}) => {
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const formatBytes = (bytes: number) => {
+    if (!bytes) return '0 B';
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), sizes.length - 1);
+    return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
+  };
+
+  const allowedFile = (file: File) => file.type.startsWith('image/') || file.type === 'application/pdf';
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files || []).filter(allowedFile);
+    if (files.length) onUploadFiles(files);
+  };
+
+  const handleBrowse = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length) {
+      const filtered = Array.from(files).filter(allowedFile);
+      onUploadFiles(filtered);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  return (
   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
     <div className="lg:col-span-2 space-y-6">
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
@@ -163,8 +198,81 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
           </div>
         )}
       </div>
+
+      {selectedPatient && (
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1">Files & Imaging</p>
+              <h3 className="text-lg font-bold text-gray-800">Patient Documents</h3>
+            </div>
+          </div>
+
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleDrop}
+            className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center bg-gray-50 hover:border-indigo-300 transition-colors"
+          >
+            <Upload className="w-8 h-8 text-indigo-500 mx-auto mb-2" />
+            <p className="text-sm font-medium text-gray-800">Drag & drop X-rays, PDFs, or documents</p>
+            <p className="text-xs text-gray-500 mb-3">Accepted: images, PDF. Max 10 files at once.</p>
+            <div className="flex justify-center gap-3">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="px-3 py-1.5 text-xs font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+              >
+                Browse files
+              </button>
+              {uploadingFiles && <span className="text-xs text-indigo-600 font-semibold">Uploading...</span>}
+            </div>
+            <input
+              type="file"
+              multiple
+              accept="image/*,application/pdf"
+              ref={fileInputRef}
+              onChange={handleBrowse}
+              className="hidden"
+            />
+          </div>
+
+          <div className="mt-5 space-y-3">
+            {patientFiles.length === 0 ? (
+              <div className="text-xs text-gray-400 text-center italic">No files uploaded for this patient.</div>
+            ) : (
+              patientFiles.map((file) => (
+                <div key={file.path} className="flex items-center justify-between px-3 py-2 border border-gray-100 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <FileText className="w-5 h-5 text-indigo-500" />
+                    <div>
+                      <p className="text-sm font-semibold text-gray-800">{file.name}</p>
+                      <p className="text-xs text-gray-500">{file.type || 'File'} · {formatBytes(file.size)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={file.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-indigo-600 font-bold hover:text-indigo-800"
+                    >
+                      View
+                    </a>
+                    <button
+                      onClick={() => onDeleteFile(file.path)}
+                      className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1"
+                    >
+                      <Trash2 size={14} /> Remove
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
     </div>
   </div>
-);
+  );
+};
 
 export default ClinicalView;

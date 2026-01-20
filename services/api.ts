@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Patient, Appointment, ClinicalRecord, TreatmentType } from '../types';
+import { Patient, Appointment, ClinicalRecord, TreatmentType, PatientFile } from '../types';
 
 // Utility: map DB snake_case fields to app camelCase
 const mapPatient = (row: any): Patient => ({
@@ -7,6 +7,9 @@ const mapPatient = (row: any): Patient => ({
   medicalHistory: row?.medical_history ?? row?.medicalHistory,
   created_at: row?.created_at
 });
+
+// Storage bucket for patient uploads
+const PATIENT_FILES_BUCKET = 'patient_files';
 
 export const api = {
   patients: {
@@ -241,6 +244,60 @@ export const api = {
       if (updateError) throw new Error(updateError.message);
       
       return { status: "success", new_balance: newBal };
+    }
+  },
+
+  files: {
+    list: async (patientId: string): Promise<PatientFile[]> => {
+      const { data, error } = await supabase.storage
+        .from(PATIENT_FILES_BUCKET)
+        .list(patientId, { limit: 100, offset: 0, sortBy: { column: 'created_at', order: 'desc' } });
+
+      if (error) throw new Error(error.message);
+
+      return (data || []).map((file) => {
+        const path = `${patientId}/${file.name}`;
+        const { data: publicData } = supabase.storage.from(PATIENT_FILES_BUCKET).getPublicUrl(path);
+        return {
+          path,
+          name: file.name,
+          size: file.metadata?.size ?? 0,
+          type: file.metadata?.mimetype ?? '',
+          uploaded_at: file.created_at,
+          url: publicData?.publicUrl || ''
+        };
+      });
+    },
+    upload: async (patientId: string, file: File): Promise<PatientFile> => {
+      const path = `${patientId}/${Date.now()}-${file.name}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(PATIENT_FILES_BUCKET)
+        .upload(path, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type
+        });
+
+      if (uploadError) throw new Error(uploadError.message);
+
+      const { data: publicData } = supabase.storage.from(PATIENT_FILES_BUCKET).getPublicUrl(path);
+
+      return {
+        path,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        uploaded_at: new Date().toISOString(),
+        url: publicData?.publicUrl || ''
+      };
+    },
+    remove: async (path: string): Promise<void> => {
+      const { error } = await supabase.storage
+        .from(PATIENT_FILES_BUCKET)
+        .remove([path]);
+
+      if (error) throw new Error(error.message);
     }
   }
 };
