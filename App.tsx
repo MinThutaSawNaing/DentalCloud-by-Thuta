@@ -30,6 +30,7 @@ const ClinicalView = React.lazy(() => import('./components/ClinicalView'));
 const TreatmentConfigView = React.lazy(() => import('./components/TreatmentConfigView'));
 const RecordsView = React.lazy(() => import('./components/RecordsView'));
 const Receipt = React.lazy(() => import('./components/Receipt'));
+const TreatmentSelectionModal = React.lazy(() => import('./components/TreatmentSelectionModal'));
 
 type ViewState = 'dashboard' | 'patients' | 'appointments' | 'finance' | 'treatments' | 'records';
 
@@ -59,7 +60,9 @@ const App: React.FC = () => {
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [showTreatmentTypeModal, setShowTreatmentTypeModal] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
+  const [showTreatmentSelection, setShowTreatmentSelection] = useState(false);
   const [lastPaymentAmount, setLastPaymentAmount] = useState<number>(0);
+  const [selectedTreatmentsForReceipt, setSelectedTreatmentsForReceipt] = useState<ClinicalRecord[]>([]);
   
   // -- Form State --
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
@@ -240,7 +243,8 @@ const App: React.FC = () => {
       setSelectedPatient({ ...selectedPatient, balance: res.new_balance });
       setLastPaymentAmount(paymentAmount);
       setShowPaymentModal(false);
-      setShowReceipt(true);
+      // Show treatment selection first, then receipt
+      setShowTreatmentSelection(true);
       fetchInitialData(); 
     } catch (err: any) {
       alert(err.message);
@@ -249,6 +253,12 @@ const App: React.FC = () => {
 
   const handleGenerateReceipt = () => {
     setLastPaymentAmount(0);
+    setShowTreatmentSelection(true);
+  };
+
+  const handleTreatmentSelectionConfirm = (selectedTreatments: ClinicalRecord[]) => {
+    setSelectedTreatmentsForReceipt(selectedTreatments);
+    setShowTreatmentSelection(false);
     setShowReceipt(true);
   };
 
@@ -491,11 +501,21 @@ const App: React.FC = () => {
         </Modal>
       )}
 
+      {showTreatmentSelection && selectedPatient && (
+        <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center"><Loader2 className="animate-spin text-white w-10 h-10" /></div>}>
+          <TreatmentSelectionModal
+            treatments={treatmentHistory}
+            onConfirm={handleTreatmentSelectionConfirm}
+            onClose={() => setShowTreatmentSelection(false)}
+          />
+        </Suspense>
+      )}
+
       {showReceipt && selectedPatient && (
         <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center"><Loader2 className="animate-spin text-white w-10 h-10" /></div>}>
           <Receipt
             patient={selectedPatient}
-            treatments={treatmentHistory}
+            treatments={selectedTreatmentsForReceipt.length > 0 ? selectedTreatmentsForReceipt : treatmentHistory}
             paymentAmount={lastPaymentAmount}
             onClose={() => setShowReceipt(false)}
           />
