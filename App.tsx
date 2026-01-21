@@ -72,14 +72,16 @@ const App: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const [patData, aptData, typeData] = await Promise.all([
+      const [patData, aptData, typeData, recordsData] = await Promise.all([
         api.patients.getAll(),
         api.appointments.getAll(),
-        api.treatments.getTypes()
+        api.treatments.getTypes(),
+        api.treatments.getAllRecords()
       ]);
       setPatients(patData);
       setAppointments(aptData);
       setTreatmentTypes(typeData);
+      setGlobalRecords(recordsData);
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Failed to connect to database. Please check your network.");
@@ -325,7 +327,7 @@ const App: React.FC = () => {
       <main className="flex-1 md:ml-64 p-6 md:p-10">
         <div className="max-w-6xl mx-auto">
           <Suspense fallback={<div className="flex justify-center p-20"><Loader2 className="animate-spin text-indigo-600 w-10 h-10" /></div>}>
-            {currentView === 'dashboard' && <DashboardView patients={patients} appointments={appointments} />}
+            {currentView === 'dashboard' && <DashboardView patients={patients} appointments={appointments} treatmentRecords={globalRecords} />}
             {currentView === 'patients' && <PatientsView patients={patients} loading={loading} onSelectPatient={handlePatientSelect} onAddPatient={() => setShowPatientModal(true)} />}
             {currentView === 'appointments' && <AppointmentsView appointments={appointments} loading={loading} onAddAppointment={() => {setEditingAppointment(null); setNewAppointmentData({ date: '', time: '', type: 'Checkup', status: 'Scheduled', patient_id: '' }); setShowAppointmentModal(true)}} onEditAppointment={(apt) => {setEditingAppointment(apt); setNewAppointmentData({ date: apt.date, time: apt.time, type: apt.type || 'Checkup', status: apt.status, patient_id: apt.patient_id, notes: apt.notes }); setShowAppointmentModal(true)}} onDeleteAppointment={handleDeleteAppointment} onUpdateStatus={handleUpdateAppointmentStatus} />}
             {currentView === 'treatments' && <TreatmentConfigView treatmentTypes={treatmentTypes} onAdd={() => {setEditingTreatmentType(null); setShowTreatmentTypeModal(true)}} onEdit={(t) => {setEditingTreatmentType(t); setNewTreatmentTypeData(t); setShowTreatmentTypeModal(true)}} onDelete={handleDeleteTreatmentType} />}
