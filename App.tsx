@@ -29,6 +29,7 @@ const AppointmentsView = React.lazy(() => import('./components/AppointmentsView'
 const ClinicalView = React.lazy(() => import('./components/ClinicalView'));
 const TreatmentConfigView = React.lazy(() => import('./components/TreatmentConfigView'));
 const RecordsView = React.lazy(() => import('./components/RecordsView'));
+const Receipt = React.lazy(() => import('./components/Receipt'));
 
 type ViewState = 'dashboard' | 'patients' | 'appointments' | 'finance' | 'treatments' | 'records';
 
@@ -57,6 +58,8 @@ const App: React.FC = () => {
   const [showPatientModal, setShowPatientModal] = useState(false);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [showTreatmentTypeModal, setShowTreatmentTypeModal] = useState(false);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [lastPaymentAmount, setLastPaymentAmount] = useState<number>(0);
   
   // -- Form State --
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
@@ -235,11 +238,18 @@ const App: React.FC = () => {
     try {
       const res = await api.finance.processPayment(selectedPatient.id, paymentAmount);
       setSelectedPatient({ ...selectedPatient, balance: res.new_balance });
+      setLastPaymentAmount(paymentAmount);
       setShowPaymentModal(false);
+      setShowReceipt(true);
       fetchInitialData(); 
     } catch (err: any) {
       alert(err.message);
     }
+  };
+
+  const handleGenerateReceipt = () => {
+    setLastPaymentAmount(0);
+    setShowReceipt(true);
   };
 
   const handleUploadFiles = async (files: FileList | File[]) => {
@@ -346,6 +356,7 @@ const App: React.FC = () => {
                 onPaymentRequest={(amount) => { setPaymentAmount(amount); setShowPaymentModal(true); }}
                 onClosePatient={handleClosePatient}
                 onOpenDirectory={() => setCurrentView('patients')}
+                onGenerateReceipt={handleGenerateReceipt}
             />}
           </Suspense>
         </div>
@@ -478,6 +489,17 @@ const App: React.FC = () => {
             <button type="submit" className="w-full bg-green-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-green-600/20">Post Payment & Clear Balance</button>
           </form>
         </Modal>
+      )}
+
+      {showReceipt && selectedPatient && (
+        <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center"><Loader2 className="animate-spin text-white w-10 h-10" /></div>}>
+          <Receipt
+            patient={selectedPatient}
+            treatments={treatmentHistory}
+            paymentAmount={lastPaymentAmount}
+            onClose={() => setShowReceipt(false)}
+          />
+        </Suspense>
       )}
     </div>
   );

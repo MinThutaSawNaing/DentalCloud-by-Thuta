@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, X, Upload, Trash2, FileText } from 'lucide-react';
+import { User, X, Upload, Trash2, FileText, Receipt as ReceiptIcon } from 'lucide-react';
 import { ToothSelector } from './ToothSelector';
 import { Patient, TreatmentType, ClinicalRecord, PatientFile } from '../types';
 
@@ -17,6 +17,7 @@ interface ClinicalViewProps {
   onOpenDirectory: () => void;
   onUploadFiles: (files: FileList | File[]) => void;
   onDeleteFile: (path: string) => void;
+  onGenerateReceipt: () => void;
 }
 
 const ClinicalView: React.FC<ClinicalViewProps> = ({
@@ -32,7 +33,8 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
   onClosePatient,
   onOpenDirectory,
   onUploadFiles,
-  onDeleteFile
+  onDeleteFile,
+  onGenerateReceipt
 }) => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -176,6 +178,13 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
                    {selectedPatient.medicalHistory || "No active medical alerts."}
                  </p>
                </div>
+
+               <button 
+                className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold text-sm hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20"
+                onClick={onGenerateReceipt}
+               >
+                 <ReceiptIcon size={16} /> Generate Receipt
+               </button>
                
                <button 
                 className="w-full bg-gray-900 text-white py-3 rounded-xl font-bold text-sm mt-2 hover:bg-gray-800 transition-all flex items-center justify-center gap-2"
