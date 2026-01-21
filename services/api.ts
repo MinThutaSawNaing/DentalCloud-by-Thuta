@@ -91,16 +91,45 @@ export const api = {
       const { data: result, error } = await supabase
         .from('appointments')
         .insert(data)
-        .select()
+        .select('*, patients(name)')
         .single();
 
       if (error) throw new Error(error.message);
-      return result;
+      
+      // Flatten the response
+      return {
+        ...result,
+        patient_name: result.patients?.name || 'Unknown'
+      };
     },
     updateStatus: async (id: string, status: string): Promise<void> => {
       const { error } = await supabase
         .from('appointments')
         .update({ status })
+        .eq('id', id);
+
+      if (error) throw new Error(error.message);
+    },
+    update: async (id: string, data: Partial<Appointment>): Promise<Appointment> => {
+      const { data: result, error } = await supabase
+        .from('appointments')
+        .update(data)
+        .eq('id', id)
+        .select('*, patients(name)')
+        .single();
+
+      if (error) throw new Error(error.message);
+      
+      // Flatten the response
+      return {
+        ...result,
+        patient_name: result.patients?.name || 'Unknown'
+      };
+    },
+    delete: async (id: string): Promise<void> => {
+      const { error } = await supabase
+        .from('appointments')
+        .delete()
         .eq('id', id);
 
       if (error) throw new Error(error.message);

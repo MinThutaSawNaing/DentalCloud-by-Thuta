@@ -7,7 +7,8 @@ import {
   Activity,
   Loader2,
   Stethoscope,
-  ClipboardList
+  ClipboardList,
+  Calendar
 } from 'lucide-react';
 
 import { Modal, Input, NavItem } from './components/Shared';
@@ -24,6 +25,7 @@ import { api } from './services/api';
 // Lazy Load Views
 const DashboardView = React.lazy(() => import('./components/DashboardView'));
 const PatientsView = React.lazy(() => import('./components/PatientsView'));
+const AppointmentsView = React.lazy(() => import('./components/AppointmentsView'));
 const ClinicalView = React.lazy(() => import('./components/ClinicalView'));
 const TreatmentConfigView = React.lazy(() => import('./components/TreatmentConfigView'));
 const RecordsView = React.lazy(() => import('./components/RecordsView'));
@@ -48,6 +50,7 @@ const App: React.FC = () => {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [selectedTeeth, setSelectedTeeth] = useState<number[]>([]);
   const [editingTreatmentType, setEditingTreatmentType] = useState<TreatmentType | null>(null);
+  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   
   // -- Modals State --
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -58,7 +61,7 @@ const App: React.FC = () => {
   // -- Form State --
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
   const [newPatientData, setNewPatientData] = useState<Partial<Patient>>({ name: '', email: '', phone: '', medicalHistory: '' });
-  const [newAppointmentData, setNewAppointmentData] = useState<Partial<Appointment>>({ date: '', time: '', type: 'Checkup', status: 'Scheduled' });
+  const [newAppointmentData, setNewAppointmentData] = useState<Partial<Appointment>>({ date: '', time: '', type: 'Checkup', status: 'Scheduled', patient_id: '' });
   const [newTreatmentTypeData, setNewTreatmentTypeData] = useState<Partial<TreatmentType>>({ name: '', cost: 0, category: 'Preventative' });
 
   useEffect(() => {
@@ -126,6 +129,41 @@ const App: React.FC = () => {
       setShowPatientModal(false);
       fetchInitialData(); 
       setNewPatientData({ name: '', email: '', phone: '', medicalHistory: '' });
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleCreateAppointment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (editingAppointment) {
+        await api.appointments.update(editingAppointment.id, newAppointmentData);
+      } else {
+        await api.appointments.create(newAppointmentData);
+      }
+      setShowAppointmentModal(false);
+      fetchInitialData();
+      setEditingAppointment(null);
+      setNewAppointmentData({ date: '', time: '', type: 'Checkup', status: 'Scheduled', patient_id: '' });
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteAppointment = async (id: string) => {
+    try {
+      await api.appointments.delete(id);
+      fetchInitialData();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleUpdateAppointmentStatus = async (id: string, status: 'Scheduled' | 'Completed' | 'Cancelled') => {
+    try {
+      await api.appointments.updateStatus(id, status);
+      fetchInitialData();
     } catch (err: any) {
       alert(err.message);
     }
@@ -263,6 +301,7 @@ const App: React.FC = () => {
         <nav className="mt-8 px-6 space-y-2">
           <NavItem icon={<LayoutDashboard size={18} />} label="Overview" active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} />
           <NavItem icon={<Users size={18} />} label="Patients" active={currentView === 'patients'} onClick={() => setCurrentView('patients')} />
+          <NavItem icon={<Calendar size={18} />} label="Appointments" active={currentView === 'appointments'} onClick={() => setCurrentView('appointments')} />
           
           <div className="pt-8 pb-2">
              <p className="px-3 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">Operations</p>
@@ -288,6 +327,7 @@ const App: React.FC = () => {
           <Suspense fallback={<div className="flex justify-center p-20"><Loader2 className="animate-spin text-indigo-600 w-10 h-10" /></div>}>
             {currentView === 'dashboard' && <DashboardView patients={patients} appointments={appointments} />}
             {currentView === 'patients' && <PatientsView patients={patients} loading={loading} onSelectPatient={handlePatientSelect} onAddPatient={() => setShowPatientModal(true)} />}
+            {currentView === 'appointments' && <AppointmentsView appointments={appointments} loading={loading} onAddAppointment={() => {setEditingAppointment(null); setNewAppointmentData({ date: '', time: '', type: 'Checkup', status: 'Scheduled', patient_id: '' }); setShowAppointmentModal(true)}} onEditAppointment={(apt) => {setEditingAppointment(apt); setNewAppointmentData({ date: apt.date, time: apt.time, type: apt.type || 'Checkup', status: apt.status, patient_id: apt.patient_id, notes: apt.notes }); setShowAppointmentModal(true)}} onDeleteAppointment={handleDeleteAppointment} onUpdateStatus={handleUpdateAppointmentStatus} />}
             {currentView === 'treatments' && <TreatmentConfigView treatmentTypes={treatmentTypes} onAdd={() => {setEditingTreatmentType(null); setShowTreatmentTypeModal(true)}} onEdit={(t) => {setEditingTreatmentType(t); setNewTreatmentTypeData(t); setShowTreatmentTypeModal(true)}} onDelete={handleDeleteTreatmentType} />}
             {currentView === 'records' && <RecordsView records={globalRecords} loading={loading} onRefresh={fetchGlobalRecords} />}
             {currentView === 'finance' && <ClinicalView 
@@ -324,6 +364,84 @@ const App: React.FC = () => {
                 value={newPatientData.medicalHistory} onChange={e => setNewPatientData({...newPatientData, medicalHistory: e.target.value})} />
             </div>
             <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-600/20">Finalize Registration</button>
+          </form>
+        </Modal>
+      )}
+
+      {showAppointmentModal && (
+        <Modal title={editingAppointment ? "Edit Appointment" : "New Appointment"} onClose={() => {setShowAppointmentModal(false); setEditingAppointment(null);}}>
+          <form onSubmit={handleCreateAppointment} className="space-y-5">
+            <div>
+              <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">Patient</label>
+              <select 
+                className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500"
+                required
+                value={newAppointmentData.patient_id} 
+                onChange={(e: any) => setNewAppointmentData({...newAppointmentData, patient_id: e.target.value})}
+              >
+                <option value="">Select a patient</option>
+                {patients.map(patient => (
+                  <option key={patient.id} value={patient.id}>{patient.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Input 
+                label="Date" 
+                type="date" 
+                required 
+                value={newAppointmentData.date} 
+                onChange={(e: any) => setNewAppointmentData({...newAppointmentData, date: e.target.value})} 
+              />
+              <Input 
+                label="Time" 
+                type="time" 
+                required 
+                value={newAppointmentData.time} 
+                onChange={(e: any) => setNewAppointmentData({...newAppointmentData, time: e.target.value})} 
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">Type</label>
+                <select 
+                  className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500"
+                  value={newAppointmentData.type} 
+                  onChange={(e: any) => setNewAppointmentData({...newAppointmentData, type: e.target.value})}
+                >
+                  <option value="Checkup">Checkup</option>
+                  <option value="Cleaning">Cleaning</option>
+                  <option value="Consultation">Consultation</option>
+                  <option value="Treatment">Treatment</option>
+                  <option value="Follow-up">Follow-up</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">Status</label>
+                <select 
+                  className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500"
+                  value={newAppointmentData.status} 
+                  onChange={(e: any) => setNewAppointmentData({...newAppointmentData, status: e.target.value})}
+                >
+                  <option value="Scheduled">Scheduled</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">Notes</label>
+              <textarea 
+                className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" 
+                rows={3}
+                value={newAppointmentData.notes || ''} 
+                onChange={(e: any) => setNewAppointmentData({...newAppointmentData, notes: e.target.value})}
+                placeholder="Optional notes about this appointment..."
+              />
+            </div>
+            <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-600/20">
+              {editingAppointment ? 'Update Appointment' : 'Create Appointment'}
+            </button>
           </form>
         </Modal>
       )}
