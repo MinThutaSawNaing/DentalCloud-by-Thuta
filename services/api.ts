@@ -623,14 +623,15 @@ export const api = {
     },
     authenticate: async (username: string, password: string): Promise<User | null> => {
       try {
+        const trimmedUsername = username.trim();
         const { data, error } = await supabase
           .from('users')
           .select('id, username, password, role')
-          .eq('username', username)
+          .eq('username', trimmedUsername)
           .single();
-        
+
         if (error || !data) return null;
-        
+
         // Simple password comparison (in production, use hashed passwords)
         if (data.password === password) {
           return {
@@ -646,19 +647,24 @@ export const api = {
       }
     },
     create: async (data: Partial<User>): Promise<User> => {
+      const trimmedUsername = data.username?.trim();
+      if (!trimmedUsername) {
+        throw new Error('Username is required');
+      }
+
       // Check if username already exists
       const { data: existing } = await supabase
         .from('users')
         .select('id')
-        .eq('username', data.username)
+        .eq('username', trimmedUsername)
         .single();
-      
+
       if (existing) {
         throw new Error('Username already exists');
       }
 
       const payload = {
-        username: data.username,
+        username: trimmedUsername,
         password: data.password, // In production, hash this
         role: data.role || 'normal'
       };
@@ -680,20 +686,25 @@ export const api = {
     },
     update: async (id: string, data: Partial<User>): Promise<User> => {
       const payload: any = {};
-      
+
       if (data.username !== undefined) {
+        const trimmedUsername = data.username.trim();
+        if (!trimmedUsername) {
+          throw new Error('Username cannot be empty');
+        }
+
         // Check if username already exists (excluding current user)
         const { data: existing } = await supabase
           .from('users')
           .select('id')
-          .eq('username', data.username)
+          .eq('username', trimmedUsername)
           .neq('id', id)
           .single();
-        
+
         if (existing) {
           throw new Error('Username already exists');
         }
-        payload.username = data.username;
+        payload.username = trimmedUsername;
       }
       
       if (data.password !== undefined && data.password !== '') {
