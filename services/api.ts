@@ -299,20 +299,33 @@ export const api = {
 
       if (doctorError) throw new Error(doctorError.message);
 
-      // Then create schedules if provided
+      // Then create schedules if provided (filter and validate)
       if (data.schedules && data.schedules.length > 0) {
-        const schedules = data.schedules.map(sched => ({
-          doctor_id: doctorData.id,
-          day_of_week: sched.day_of_week,
-          start_time: sched.start_time,
-          end_time: sched.end_time
-        }));
+        const validSchedules = data.schedules
+          .filter(sched => {
+            // Filter out schedules with missing data
+            if (!sched.start_time || !sched.end_time || sched.day_of_week === undefined) {
+              return false;
+            }
+            // Validate that end_time > start_time
+            const start = new Date(`2000-01-01T${sched.start_time}`);
+            const end = new Date(`2000-01-01T${sched.end_time}`);
+            return end > start;
+          })
+          .map(sched => ({
+            doctor_id: doctorData.id,
+            day_of_week: sched.day_of_week,
+            start_time: sched.start_time,
+            end_time: sched.end_time
+          }));
 
-        const { error: scheduleError } = await supabase
-          .from('doctor_schedules')
-          .insert(schedules);
+        if (validSchedules.length > 0) {
+          const { error: scheduleError } = await supabase
+            .from('doctor_schedules')
+            .insert(validSchedules);
 
-        if (scheduleError) throw new Error(scheduleError.message);
+          if (scheduleError) throw new Error(scheduleError.message);
+        }
       }
 
       // Fetch the complete doctor with schedules
@@ -361,20 +374,33 @@ export const api = {
           .delete()
           .eq('doctor_id', id);
 
-        // Insert new schedules
+        // Insert new schedules (filter and validate)
         if (data.schedules.length > 0) {
-          const schedules = data.schedules.map(sched => ({
-            doctor_id: id,
-            day_of_week: sched.day_of_week,
-            start_time: sched.start_time,
-            end_time: sched.end_time
-          }));
+          const validSchedules = data.schedules
+            .filter(sched => {
+              // Filter out schedules with missing data
+              if (!sched.start_time || !sched.end_time || sched.day_of_week === undefined) {
+                return false;
+              }
+              // Validate that end_time > start_time
+              const start = new Date(`2000-01-01T${sched.start_time}`);
+              const end = new Date(`2000-01-01T${sched.end_time}`);
+              return end > start;
+            })
+            .map(sched => ({
+              doctor_id: id,
+              day_of_week: sched.day_of_week,
+              start_time: sched.start_time,
+              end_time: sched.end_time
+            }));
 
-          const { error: scheduleError } = await supabase
-            .from('doctor_schedules')
-            .insert(schedules);
+          if (validSchedules.length > 0) {
+            const { error: scheduleError } = await supabase
+              .from('doctor_schedules')
+              .insert(validSchedules);
 
-          if (scheduleError) throw new Error(scheduleError.message);
+            if (scheduleError) throw new Error(scheduleError.message);
+          }
         }
       }
 

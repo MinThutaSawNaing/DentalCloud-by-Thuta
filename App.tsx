@@ -208,11 +208,39 @@ const App: React.FC = () => {
 
   const handleCreateDoctor = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate schedules before submitting
+    const schedules = (newDoctorData.schedules || []).filter(sched => {
+      // Filter out schedules with missing or invalid times
+      if (!sched.start_time || !sched.end_time) return false;
+      
+      // Validate that end_time > start_time
+      const start = new Date(`2000-01-01T${sched.start_time}`);
+      const end = new Date(`2000-01-01T${sched.end_time}`);
+      if (end <= start) {
+        alert(`Invalid schedule: End time must be after start time for ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][sched.day_of_week]}`);
+        return false;
+      }
+      return true;
+    });
+
+    // Check for duplicate day_of_week entries
+    const daySet = new Set(schedules.map(s => s.day_of_week));
+    if (daySet.size !== schedules.length) {
+      alert('Error: You cannot have multiple schedules for the same day. Please combine them into one schedule with a longer time range.');
+      return;
+    }
+
     try {
+      const doctorDataToSave = {
+        ...newDoctorData,
+        schedules: schedules
+      };
+
       if (editingDoctor) {
-        await api.doctors.update(editingDoctor.id, newDoctorData);
+        await api.doctors.update(editingDoctor.id, doctorDataToSave);
       } else {
-        await api.doctors.create(newDoctorData);
+        await api.doctors.create(doctorDataToSave);
       }
       setShowDoctorModal(false);
       fetchInitialData();
