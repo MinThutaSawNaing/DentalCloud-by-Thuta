@@ -463,6 +463,11 @@ const App: React.FC = () => {
              <NavItem icon={<ClipboardList size={18} />} label="Audit Log" active={currentView === 'records'} onClick={() => setCurrentView('records')} />
              <NavItem icon={<CreditCard size={18} />} label="Clinical Focus" active={currentView === 'finance'} onClick={() => setCurrentView('finance')} />
           </div>
+          
+          <div className="pt-8 pb-2">
+             <p className="px-3 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">System</p>
+             <NavItem icon={<Settings size={18} />} label="Settings" active={currentView === 'settings'} onClick={() => setCurrentView('settings')} />
+          </div>
         </nav>
 
         <div className="absolute bottom-8 left-0 w-full px-8">
