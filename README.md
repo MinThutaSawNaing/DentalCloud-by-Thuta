@@ -50,7 +50,8 @@ The system is optimized for relational integrity and storage efficiency. Below i
   "date": "2026-01-19",
   "created_at": "2026-01-19T14:58:40Z"
 }
-⚙️ Local Development
+
+##⚙️ Local Development
 To run this project locally, follow these steps:
 
 Clone the repository:
@@ -64,14 +65,14 @@ Bash
 npm install
 Environment Setup: Create a .env file in the root directory and add your Supabase credentials:
 
-ကုဒ်စာသား
 REACT_APP_SUPABASE_URL=your_supabase_url
 REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key
 Launch:
 
 Bash
 npm start
-👨‍💻 Author
+
+##👨‍💻 Author
 Min Thuta Saw Naing
 
 GitHub: @MinThutaSawNaing
