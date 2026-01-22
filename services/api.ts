@@ -136,6 +136,24 @@ export const api = {
         .eq('id', id);
 
       if (error) throw new Error(error.message);
+    },
+    cleanupOld: async (daysOld: number = 4): Promise<number> => {
+      // Calculate the cutoff date (4 days ago)
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+      const cutoffDateStr = cutoffDate.toISOString().split('T')[0];
+
+      // Delete appointments older than the cutoff date
+      const { data, error } = await supabase
+        .from('appointments')
+        .delete()
+        .lt('date', cutoffDateStr)
+        .select();
+
+      if (error) throw new Error(error.message);
+      
+      // Return count of deleted records
+      return data?.length || 0;
     }
   },
 

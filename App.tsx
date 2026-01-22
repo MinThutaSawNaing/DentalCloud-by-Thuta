@@ -83,12 +83,28 @@ const App: React.FC = () => {
 
   useEffect(() => {
     fetchInitialData();
+    
+    // Set up periodic cleanup every 24 hours
+    const cleanupInterval = setInterval(() => {
+      api.appointments.cleanupOld(4).catch(err => {
+        console.warn('Periodic cleanup failed:', err);
+      });
+    }, 24 * 60 * 60 * 1000); // 24 hours in milliseconds
+    
+    return () => clearInterval(cleanupInterval);
   }, []);
 
   const fetchInitialData = async () => {
     try {
       setLoading(true);
       setError(null);
+      
+      // Cleanup old appointments (older than 4 days) - run silently in background
+      api.appointments.cleanupOld(4).catch(err => {
+        console.warn('Failed to cleanup old appointments:', err);
+        // Don't show error to user, just log it
+      });
+      
       const [patData, aptData, docData, typeData, recordsData] = await Promise.all([
         api.patients.getAll(),
         api.appointments.getAll(),
