@@ -565,7 +565,7 @@ const App: React.FC = () => {
           <span className="text-xl font-black text-white tracking-tight">DentFlow<span className="text-indigo-400">Pro</span></span>
         </div>
         
-        <nav className="mt-8 px-6 space-y-2 flex-1 overflow-y-auto pb-4 min-h-0 sidebar-scroll">
+        <nav className="mt-8 px-6 space-y-2 flex-1 overflow-y-auto pb-4 min-h-0 sidebar-scroll" style={{ scrollBehavior: 'smooth' }}>
           <NavItem icon={<LayoutDashboard size={18} />} label="Overview" active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} />
           <NavItem icon={<Users size={18} />} label="Patients" active={currentView === 'patients'} onClick={() => setCurrentView('patients')} />
           <NavItem icon={<Calendar size={18} />} label="Appointments" active={currentView === 'appointments'} onClick={() => setCurrentView('appointments')} />

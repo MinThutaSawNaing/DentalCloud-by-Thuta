@@ -27,25 +27,13 @@
       ::-webkit-scrollbar-thumb:hover {
         background: #a8a8a8; 
       }
-      /* Dark scrollbar for sidebar */
-      .sidebar-scroll::-webkit-scrollbar {
-        width: 6px;
-      }
-      .sidebar-scroll::-webkit-scrollbar-track {
-        background: rgba(31, 41, 55, 0.5);
-        border-radius: 3px;
-      }
-      .sidebar-scroll::-webkit-scrollbar-thumb {
-        background: rgba(75, 85, 99, 0.8);
-        border-radius: 3px;
-      }
-      .sidebar-scroll::-webkit-scrollbar-thumb:hover {
-        background: rgba(107, 114, 128, 0.9);
-      }
-      /* Firefox scrollbar for sidebar */
+      /* Hide scrollbar but keep scrolling functionality for sidebar */
       .sidebar-scroll {
-        scrollbar-width: thin;
-        scrollbar-color: rgba(75, 85, 99, 0.8) rgba(31, 41, 55, 0.5);
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE and Edge */
+      }
+      .sidebar-scroll::-webkit-scrollbar {
+        display: none; /* Chrome, Safari, Opera */
       }
     </style>
 <link rel="stylesheet" href="/index.css">
