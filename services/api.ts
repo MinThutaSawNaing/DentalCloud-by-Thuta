@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Patient, Appointment, ClinicalRecord, TreatmentType, PatientFile, Doctor, DoctorSchedule } from '../types';
+import { Patient, Appointment, ClinicalRecord, TreatmentType, PatientFile, Doctor, DoctorSchedule, User } from '../types';
 
 // Utility: map DB snake_case fields to app camelCase
 const mapPatient = (row: any): Patient => ({
@@ -595,6 +595,138 @@ export const api = {
       const { error } = await supabase.storage
         .from(PATIENT_FILES_BUCKET)
         .remove([path]);
+
+      if (error) throw new Error(error.message);
+    }
+  },
+
+  users: {
+    getAll: async (): Promise<User[]> => {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, username, role, created_at, updated_at')
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        return (data || []).map((u: any) => ({
+          id: u.id,
+          username: u.username,
+          role: u.role,
+          created_at: u.created_at,
+          updated_at: u.updated_at
+        }));
+      } catch (err) {
+        console.warn("Error fetching users:", err);
+        return [];
+      }
+    },
+    authenticate: async (username: string, password: string): Promise<User | null> => {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, username, password, role')
+          .eq('username', username)
+          .single();
+        
+        if (error || !data) return null;
+        
+        // Simple password comparison (in production, use hashed passwords)
+        if (data.password === password) {
+          return {
+            id: data.id,
+            username: data.username,
+            role: data.role
+          };
+        }
+        return null;
+      } catch (err) {
+        console.warn("Error authenticating user:", err);
+        return null;
+      }
+    },
+    create: async (data: Partial<User>): Promise<User> => {
+      // Check if username already exists
+      const { data: existing } = await supabase
+        .from('users')
+        .select('id')
+        .eq('username', data.username)
+        .single();
+      
+      if (existing) {
+        throw new Error('Username already exists');
+      }
+
+      const payload = {
+        username: data.username,
+        password: data.password, // In production, hash this
+        role: data.role || 'normal'
+      };
+
+      const { data: result, error } = await supabase
+        .from('users')
+        .insert(payload)
+        .select('id, username, role, created_at, updated_at')
+        .single();
+
+      if (error) throw new Error(error.message);
+      return {
+        id: result.id,
+        username: result.username,
+        role: result.role,
+        created_at: result.created_at,
+        updated_at: result.updated_at
+      };
+    },
+    update: async (id: string, data: Partial<User>): Promise<User> => {
+      const payload: any = {};
+      
+      if (data.username !== undefined) {
+        // Check if username already exists (excluding current user)
+        const { data: existing } = await supabase
+          .from('users')
+          .select('id')
+          .eq('username', data.username)
+          .neq('id', id)
+          .single();
+        
+        if (existing) {
+          throw new Error('Username already exists');
+        }
+        payload.username = data.username;
+      }
+      
+      if (data.password !== undefined && data.password !== '') {
+        payload.password = data.password; // In production, hash this
+      }
+      
+      if (data.role !== undefined) {
+        payload.role = data.role;
+      }
+
+      payload.updated_at = new Date().toISOString();
+
+      const { data: result, error } = await supabase
+        .from('users')
+        .update(payload)
+        .eq('id', id)
+        .select('id, username, role, created_at, updated_at')
+        .single();
+
+      if (error) throw new Error(error.message);
+      return {
+        id: result.id,
+        username: result.username,
+        role: result.role,
+        created_at: result.created_at,
+        updated_at: result.updated_at
+      };
+    },
+    delete: async (id: string): Promise<void> => {
+      const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', id);
 
       if (error) throw new Error(error.message);
     }

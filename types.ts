@@ -73,3 +73,12 @@ export interface Appointment {
   status: 'Scheduled' | 'Completed' | 'Cancelled';
   notes?: string;
 }
+
+export interface User {
+  id: string;
+  username: string;
+  password?: string; // Only for creation/update, not returned in queries
+  role: 'admin' | 'normal';
+  created_at?: string;
+  updated_at?: string;
+}

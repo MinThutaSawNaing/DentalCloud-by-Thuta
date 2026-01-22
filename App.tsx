@@ -11,7 +11,9 @@ import {
   Calendar,
   UserCheck,
   Trash2,
-  Settings
+  Settings,
+  Shield,
+  LogOut
 } from 'lucide-react';
 
 import { Modal, Input, NavItem } from './components/Shared';
@@ -22,11 +24,13 @@ import {
   ClinicalRecord,
   PatientFile,
   Doctor,
-  DoctorSchedule
+  DoctorSchedule,
+  User
 } from './types';
 import { TREATMENT_CATEGORIES } from './constants';
 import { api } from './services/api';
 import { formatCurrency, Currency } from './utils/currency';
+import { auth } from './services/auth';
 
 // Lazy Load Views
 const DashboardView = React.lazy(() => import('./components/DashboardView'));
@@ -39,11 +43,16 @@ const RecordsView = React.lazy(() => import('./components/RecordsView'));
 const SettingsView = React.lazy(() => import('./components/SettingsView'));
 const Receipt = React.lazy(() => import('./components/Receipt'));
 const TreatmentSelectionModal = React.lazy(() => import('./components/TreatmentSelectionModal'));
+const LoginView = React.lazy(() => import('./components/LoginView'));
+const UsersView = React.lazy(() => import('./components/UsersView'));
 
-type ViewState = 'dashboard' | 'patients' | 'appointments' | 'doctors' | 'finance' | 'treatments' | 'records' | 'settings';
+type ViewState = 'dashboard' | 'patients' | 'appointments' | 'doctors' | 'finance' | 'treatments' | 'records' | 'settings' | 'users';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [currentUser, setCurrentUser] = useState<string>('');
   
   // -- Data State --
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -53,6 +62,7 @@ const App: React.FC = () => {
   const [globalRecords, setGlobalRecords] = useState<ClinicalRecord[]>([]); 
   const [treatmentTypes, setTreatmentTypes] = useState<TreatmentType[]>([]);
   const [patientFiles, setPatientFiles] = useState<PatientFile[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -72,6 +82,7 @@ const App: React.FC = () => {
   const [showDoctorModal, setShowDoctorModal] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [showTreatmentSelection, setShowTreatmentSelection] = useState(false);
+  const [showUserModal, setShowUserModal] = useState(false);
   const [lastPaymentAmount, setLastPaymentAmount] = useState<number>(0);
   const [selectedTreatmentsForReceipt, setSelectedTreatmentsForReceipt] = useState<ClinicalRecord[]>([]);
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
@@ -84,19 +95,73 @@ const App: React.FC = () => {
   const [newAppointmentData, setNewAppointmentData] = useState<Partial<Appointment>>({ date: '', time: '', type: 'Checkup', status: 'Scheduled', patient_id: '', doctor_id: '' });
   const [newTreatmentTypeData, setNewTreatmentTypeData] = useState<Partial<TreatmentType>>({ name: '', cost: 0, category: 'Preventative' });
   const [newDoctorData, setNewDoctorData] = useState<Partial<Doctor>>({ name: '', email: '', phone: '', specialization: '', schedules: [] });
+  const [newUserData, setNewUserData] = useState<Partial<User>>({ username: '', password: '', role: 'normal' });
+  const [editingUser, setEditingUser] = useState<User | null>(null);
 
+  // Check authentication on mount
   useEffect(() => {
-    fetchInitialData();
+    const checkAuth = () => {
+      const session = auth.getSession();
+      if (session) {
+        setIsAuthenticated(true);
+        setIsAdmin(session.role === 'admin');
+        setCurrentUser(session.username);
+        // Initialize default admin and fetch data
+        auth.initializeDefaultAdmin().then(() => {
+          fetchInitialData();
+          fetchUsers();
+        });
+      } else {
+        setIsAuthenticated(false);
+        setIsAdmin(false);
+        setCurrentUser('');
+        // Still initialize default admin for first-time setup
+        auth.initializeDefaultAdmin();
+      }
+    };
+    
+    checkAuth();
     
     // Set up periodic cleanup every 24 hours
     const cleanupInterval = setInterval(() => {
-      api.appointments.cleanupOld(4).catch(err => {
-        console.warn('Periodic cleanup failed:', err);
-      });
+      if (isAuthenticated) {
+        api.appointments.cleanupOld(4).catch(err => {
+          console.warn('Periodic cleanup failed:', err);
+        });
+      }
     }, 24 * 60 * 60 * 1000); // 24 hours in milliseconds
     
     return () => clearInterval(cleanupInterval);
-  }, []);
+  }, [isAuthenticated]);
+
+  const handleLoginSuccess = () => {
+    const session = auth.getSession();
+    if (session) {
+      setIsAuthenticated(true);
+      setIsAdmin(session.role === 'admin');
+      setCurrentUser(session.username);
+      fetchInitialData();
+      fetchUsers();
+    }
+  };
+
+  const handleLogout = () => {
+    auth.logout();
+    setIsAuthenticated(false);
+    setIsAdmin(false);
+    setCurrentUser('');
+    setCurrentView('dashboard');
+  };
+
+  const fetchUsers = async () => {
+    if (!isAdmin) return;
+    try {
+      const usersData = await api.users.getAll();
+      setUsers(usersData);
+    } catch (err: any) {
+      console.warn('Error fetching users:', err);
+    }
+  };
 
   const fetchInitialData = async () => {
     try {
@@ -128,6 +193,12 @@ const App: React.FC = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (currentView === 'users' && isAdmin) {
+      fetchUsers();
+    }
+  }, [currentView, isAdmin]);
 
   const handlePatientSelect = async (patient: Patient) => {
     setSelectedPatient(patient);
@@ -299,6 +370,36 @@ const App: React.FC = () => {
     }
   };
 
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (editingUser) {
+        await api.users.update(editingUser.id, newUserData);
+      } else {
+        if (!newUserData.password || newUserData.password === '') {
+          alert('Password is required');
+          return;
+        }
+        await api.users.create(newUserData);
+      }
+      setShowUserModal(false);
+      setEditingUser(null);
+      setNewUserData({ username: '', password: '', role: 'normal' });
+      fetchUsers();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    try {
+      await api.users.delete(id);
+      fetchUsers();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
   const handleUpdateAppointmentStatus = async (id: string, status: 'Scheduled' | 'Completed' | 'Cancelled') => {
     try {
       await api.appointments.updateStatus(id, status);
@@ -425,6 +526,19 @@ const App: React.FC = () => {
     setPatientFiles([]);
   };
 
+  // Show login if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <Suspense fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <Loader2 className="animate-spin text-indigo-600 w-10 h-10" />
+        </div>
+      }>
+        <LoginView onLoginSuccess={handleLoginSuccess} />
+      </Suspense>
+    );
+  }
+
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
@@ -466,17 +580,36 @@ const App: React.FC = () => {
           
           <div className="pt-8 pb-2">
              <p className="px-3 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">System</p>
+             {isAdmin && (
+               <NavItem icon={<Shield size={18} />} label="Users" active={currentView === 'users'} onClick={() => setCurrentView('users')} />
+             )}
              <NavItem icon={<Settings size={18} />} label="Settings" active={currentView === 'settings'} onClick={() => setCurrentView('settings')} />
           </div>
         </nav>
 
         <div className="p-8 pt-4 flex-shrink-0 border-t border-gray-800">
-           <div className="p-4 bg-gray-800 rounded-2xl border border-gray-700">
+           <div className="p-4 bg-gray-800 rounded-2xl border border-gray-700 mb-4">
               <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-2">Connected Database</p>
               <div className="flex items-center gap-2">
                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
                  <span className="text-xs text-gray-300 font-medium">Supabase Active</span>
               </div>
+           </div>
+           <div className="p-4 bg-gray-800 rounded-2xl border border-gray-700">
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-2">Logged in as</p>
+              <div className="flex items-center justify-between">
+                 <span className="text-xs text-gray-300 font-medium">{currentUser}</span>
+                 {isAdmin && (
+                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 uppercase">Admin</span>
+                 )}
+              </div>
+              <button
+                onClick={handleLogout}
+                className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-xs font-medium transition-colors"
+              >
+                <LogOut size={14} />
+                Logout
+              </button>
            </div>
         </div>
       </aside>
@@ -490,6 +623,7 @@ const App: React.FC = () => {
             {currentView === 'doctors' && <DoctorsView doctors={doctors} loading={loading} onAdd={() => {setEditingDoctor(null); setNewDoctorData({ name: '', email: '', phone: '', specialization: '', schedules: [] }); setShowDoctorModal(true)}} onEdit={(doc) => {setEditingDoctor(doc); setNewDoctorData(doc); setShowDoctorModal(true)}} onDelete={handleDeleteDoctor} />}
             {currentView === 'treatments' && <TreatmentConfigView treatmentTypes={treatmentTypes} onAdd={() => {setEditingTreatmentType(null); setShowTreatmentTypeModal(true)}} onEdit={(t) => {setEditingTreatmentType(t); setNewTreatmentTypeData(t); setShowTreatmentTypeModal(true)}} onDelete={handleDeleteTreatmentType} />}
             {currentView === 'records' && <RecordsView records={globalRecords} loading={loading} onRefresh={fetchGlobalRecords} onDeleteAll={handleDeleteAllRecords} currency={currency} />}
+            {currentView === 'users' && isAdmin && <UsersView users={users} loading={loading} isAdmin={isAdmin} onAdd={() => {setEditingUser(null); setNewUserData({ username: '', password: '', role: 'normal' }); setShowUserModal(true)}} onEdit={(user) => {setEditingUser(user); setNewUserData({ username: user.username, password: '', role: user.role }); setShowUserModal(true)}} onDelete={handleDeleteUser} />}
             {currentView === 'settings' && <SettingsView currency={currency} onCurrencyChange={setCurrency} />}
             {currentView === 'finance' && <ClinicalView 
                 selectedPatient={selectedPatient} 
@@ -755,6 +889,42 @@ const App: React.FC = () => {
             </div>
             <Input label="Standard Fee ($)" type="number" required min="0" value={newTreatmentTypeData.cost} onChange={(e: any) => setNewTreatmentTypeData({...newTreatmentTypeData, cost: parseFloat(e.target.value)})} />
             <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg">Save Configuration</button>
+          </form>
+        </Modal>
+      )}
+
+      {showUserModal && isAdmin && (
+        <Modal title={editingUser ? "Edit User" : "New User"} onClose={() => {setShowUserModal(false); setEditingUser(null); setNewUserData({ username: '', password: '', role: 'normal' });}}>
+          <form onSubmit={handleCreateUser} className="space-y-5">
+            <Input 
+              label="Username" 
+              required 
+              value={newUserData.username} 
+              onChange={(e: any) => setNewUserData({...newUserData, username: e.target.value})} 
+              placeholder="Enter username"
+            />
+            <Input 
+              label={editingUser ? "New Password (leave blank to keep current)" : "Password"} 
+              type="password"
+              required={!editingUser}
+              value={newUserData.password || ''} 
+              onChange={(e: any) => setNewUserData({...newUserData, password: e.target.value})} 
+              placeholder="Enter password"
+            />
+            <div>
+              <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">Role</label>
+              <select 
+                className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500"
+                value={newUserData.role} 
+                onChange={(e: any) => setNewUserData({...newUserData, role: e.target.value})}
+              >
+                <option value="normal">Normal</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-600/20">
+              {editingUser ? 'Update User' : 'Create User'}
+            </button>
           </form>
         </Modal>
       )}
