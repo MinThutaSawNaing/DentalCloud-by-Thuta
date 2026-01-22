@@ -66,21 +66,29 @@ const RecordsView: React.FC<RecordsViewProps> = ({ records, loading, onRefresh, 
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {records.map((rec) => (
-            <tr key={rec.id} className="hover:bg-gray-50 transition-colors">
-              <td className="px-6 py-4 text-sm text-gray-500">{rec.date}</td>
-              <td className="px-6 py-4 font-bold text-gray-900">{rec.patient_name || "Unknown"}</td>
-              <td className="px-6 py-4 text-sm text-gray-700">{rec.description}</td>
-              <td className="px-6 py-4 text-xs font-mono text-gray-500">
-                {rec.teeth.length > 0 ? (
-                  <div className="flex gap-1 flex-wrap">
-                    {rec.teeth.map(t => <span key={t} className="bg-gray-100 px-1 rounded">{t}</span>)}
-                  </div>
-                ) : 'Gen.'}
+          {records.length === 0 ? (
+            <tr>
+              <td colSpan={5} className="px-6 py-8 text-center text-gray-400 italic">
+                No audit records found.
               </td>
-              <td className="px-6 py-4 text-right text-sm font-black text-gray-900">{formatCurrency(rec.cost, currency)}</td>
             </tr>
-          ))}
+          ) : (
+            records.map((rec) => (
+              <tr key={rec.id} className="hover:bg-gray-50 transition-colors">
+                <td className="px-6 py-4 text-sm text-gray-500">{rec.date}</td>
+                <td className="px-6 py-4 font-bold text-gray-900">{rec.patient_name || "Unknown"}</td>
+                <td className="px-6 py-4 text-sm text-gray-700">{rec.description}</td>
+                <td className="px-6 py-4 text-xs font-mono text-gray-500">
+                  {rec.teeth && rec.teeth.length > 0 ? (
+                    <div className="flex gap-1 flex-wrap">
+                      {rec.teeth.map(t => <span key={t} className="bg-gray-100 px-1 rounded">{t}</span>)}
+                    </div>
+                  ) : 'Gen.'}
+                </td>
+                <td className="px-6 py-4 text-right text-sm font-black text-gray-900">{formatCurrency(rec.cost || 0, currency)}</td>
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
     )}

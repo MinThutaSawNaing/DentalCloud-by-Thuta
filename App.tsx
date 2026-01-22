@@ -280,6 +280,16 @@ const App: React.FC = () => {
     }
   };
 
+  const handleDeleteAllRecords = async () => {
+    try {
+      await api.treatments.deleteAllRecords();
+      fetchGlobalRecords();
+      alert('All audit log records have been deleted successfully.');
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete records');
+    }
+  };
+
   const handleDeleteAppointment = async (id: string) => {
     try {
       await api.appointments.delete(id);

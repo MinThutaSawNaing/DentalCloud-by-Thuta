@@ -148,7 +148,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ patients, appointments, t
 
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
         <h3 className="text-lg font-semibold text-gray-800 mb-6">Weekly Revenue Performance</h3>
-        <div className="h-[300px] w-full">
+        <div className="h-[300px] w-full min-h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={weeklyRevenueData}>
               <defs>
@@ -172,7 +172,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ patients, appointments, t
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <h3 className="text-lg font-semibold text-gray-800 mb-6">Appointment Revenue Performance</h3>
-          <div className="h-[300px] w-full">
+          <div className="h-[300px] w-full min-h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={appointmentRevenueData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
@@ -204,7 +204,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ patients, appointments, t
 
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
           <h3 className="text-lg font-semibold text-gray-800 mb-6">Patient Revenue Performance</h3>
-          <div className="h-[300px] w-full">
+          <div className="h-[300px] w-full min-h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={patientRevenueData} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E5E7EB" />

@@ -30,7 +30,14 @@ const TreatmentConfigView: React.FC<TreatmentConfigViewProps> = ({ treatmentType
         </tr>
       </thead>
       <tbody className="divide-y divide-gray-100">
-        {treatmentTypes.map(t => (
+        {treatmentTypes.length === 0 ? (
+          <tr>
+            <td colSpan={4} className="px-6 py-8 text-center text-gray-400 italic">
+              No treatment types configured. Add your first service to begin.
+            </td>
+          </tr>
+        ) : (
+          treatmentTypes.map(t => (
           <tr key={t.id} className="hover:bg-gray-50 transition-colors">
             <td className="px-6 py-4 font-bold text-gray-900">{t.name}</td>
             <td className="px-6 py-4">
@@ -40,7 +47,7 @@ const TreatmentConfigView: React.FC<TreatmentConfigViewProps> = ({ treatmentType
                 'bg-blue-50 text-blue-700 border-blue-100'
               }`}>{t.category}</span>
             </td>
-            <td className="px-6 py-4 text-gray-900 font-black">${t.cost.toFixed(2)}</td>
+            <td className="px-6 py-4 text-gray-900 font-black">${(t.cost || 0).toFixed(2)}</td>
             <td className="px-6 py-4 text-right space-x-2">
               <button 
                 onClick={() => onEdit(t)}
@@ -53,7 +60,8 @@ const TreatmentConfigView: React.FC<TreatmentConfigViewProps> = ({ treatmentType
               </button>
             </td>
           </tr>
-        ))}
+          ))
+        )}
       </tbody>
     </table>
   </div>
