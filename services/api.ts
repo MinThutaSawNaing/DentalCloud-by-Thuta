@@ -624,25 +624,41 @@ export const api = {
     authenticate: async (username: string, password: string): Promise<User | null> => {
       try {
         const trimmedUsername = username.trim();
+        console.log('Attempting to authenticate user:', trimmedUsername);
+
         const { data, error } = await supabase
           .from('users')
           .select('id, username, password, role')
-          .eq('username', trimmedUsername)
-          .single();
+          .eq('username', trimmedUsername);
 
-        if (error || !data) return null;
+        console.log('Supabase response:', { data, error });
+
+        if (error) {
+          console.error('Supabase error:', error);
+          return null;
+        }
+
+        if (!data || data.length === 0) {
+          console.log('No user found with username:', trimmedUsername);
+          return null;
+        }
+
+        const user = data[0];
 
         // Simple password comparison (in production, use hashed passwords)
-        if (data.password === password) {
+        if (user.password === password) {
+          console.log('Authentication successful for user:', trimmedUsername);
           return {
-            id: data.id,
-            username: data.username,
-            role: data.role
+            id: user.id,
+            username: user.username,
+            role: user.role
           };
         }
+
+        console.log('Password mismatch for user:', trimmedUsername);
         return null;
       } catch (err) {
-        console.warn("Error authenticating user:", err);
+        console.error("Error authenticating user:", err);
         return null;
       }
     },
