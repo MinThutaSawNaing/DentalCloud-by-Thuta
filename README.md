@@ -37,22 +37,7 @@
 
 ## 🏛 Database Architecture
 
-The system is optimized for relational integrity and storage efficiency. Below is an example of the structured data model used for treatment records:
-
-```json
-{
-  "idx": 0,
-  "id": "15c5057a-a004-4460-9541-77756f5a7add",
-  "patient_id": "a1be5090-7af8-4ded-9204-17d5454d12a3",
-  "teeth": ["18", "17"],
-  "description": "Root Canal Therapy",
-  "cost": "850",
-  "date": "2026-01-19",
-  "created_at": "2026-01-19T14:58:40Z"
-}
-
-```markdown
----
+The system is optimized for relational integrity and storage efficiency.
 
 ## ⚙️ Local Development
 
