@@ -51,32 +51,42 @@ The system is optimized for relational integrity and storage efficiency. Below i
   "created_at": "2026-01-19T14:58:40Z"
 }
 
-##⚙️ Local Development
+```markdown
+---
+
+## ⚙️ Local Development
+
 To run this project locally, follow these steps:
 
-Clone the repository:
+1.  **Clone the repository:**
+    ```bash
+    git clone [https://github.com/MinThutaSawNaing/DentalCloud-by-Thuta.git](https://github.com/MinThutaSawNaing/DentalCloud-by-Thuta.git)
+    cd DentalCloud-by-Thuta
+    ```
 
-Bash
-git clone [https://github.com/MinThutaSawNaing/DentalCloud-by-Thuta.git](https://github.com/MinThutaSawNaing/DentalCloud-by-Thuta.git)
-cd DentalCloud-by-Thuta
-Install dependencies:
+2.  **Install dependencies:**
+    ```bash
+    npm install
+    ```
 
-Bash
-npm install
-Environment Setup: Create a .env file in the root directory and add your Supabase credentials:
+3.  **Environment Setup:**
+    Create a `.env` file in the root directory and add your Supabase credentials:
+    ```env
+    REACT_APP_SUPABASE_URL=your_supabase_url
+    REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key
+    ```
 
-REACT_APP_SUPABASE_URL=your_supabase_url
-REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key
-Launch:
+4.  **Launch:**
+    ```bash
+    npm start
+    ```
 
-Bash
-npm start
+---
 
-##👨‍💻 Author
-Min Thuta Saw Naing
+## 👨‍💻 Author
+**Min Thuta Saw Naing**
+* GitHub: [@MinThutaSawNaing](https://github.com/MinThutaSawNaing)
+* Project Link: [DentalCloud](https://dentalcloudbythuta.netlify.app/)
 
-GitHub: @MinThutaSawNaing
-
-Project Link: DentalCloud
-
-This project was developed as a showcase of full-stack engineering capabilities, focusing on cloud-native architecture and optimized relational database design.
+---
+*This project was developed as a showcase of full-stack engineering capabilities, focusing on cloud-native architecture and optimized relational database design.*
