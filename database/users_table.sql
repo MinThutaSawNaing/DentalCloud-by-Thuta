@@ -29,8 +29,11 @@ CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
 -- Enable Row Level Security (RLS) - adjust policies as needed
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
--- Policy: Allow all operations for authenticated users (adjust based on your security needs)
+-- Policy: Allow all operations for all users (for development)
 -- Note: In production, you should implement proper RLS policies
-CREATE POLICY "Allow all for authenticated users" ON users
+CREATE POLICY "Allow all operations" ON users
     FOR ALL USING (true);
 
+-- Allow password selection for authentication
+CREATE POLICY "Allow password read for auth" ON users
+    FOR SELECT USING (true);
