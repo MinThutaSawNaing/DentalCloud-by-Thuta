@@ -557,7 +557,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex bg-gray-50">
       {/* Sidebar Navigation */}
-      <aside className="w-64 bg-gray-900 fixed h-full z-20 hidden md:block border-r border-gray-800 flex flex-col">
+      <aside className="w-64 bg-gray-900 fixed h-full z-20 hidden md:block border-r border-gray-800 flex flex-col overflow-hidden">
         <div className="p-8 flex items-center gap-3 flex-shrink-0">
           <div className="bg-indigo-500 p-2.5 rounded-2xl shadow-lg shadow-indigo-500/20">
             <Activity className="text-white w-6 h-6" />
@@ -565,7 +565,7 @@ const App: React.FC = () => {
           <span className="text-xl font-black text-white tracking-tight">DentFlow<span className="text-indigo-400">Pro</span></span>
         </div>
         
-        <nav className="mt-8 px-6 space-y-2 flex-1 overflow-y-auto pb-4">
+        <nav className="mt-8 px-6 space-y-2 flex-1 overflow-y-auto pb-4 min-h-0 sidebar-scroll">
           <NavItem icon={<LayoutDashboard size={18} />} label="Overview" active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} />
           <NavItem icon={<Users size={18} />} label="Patients" active={currentView === 'patients'} onClick={() => setCurrentView('patients')} />
           <NavItem icon={<Calendar size={18} />} label="Appointments" active={currentView === 'appointments'} onClick={() => setCurrentView('appointments')} />
