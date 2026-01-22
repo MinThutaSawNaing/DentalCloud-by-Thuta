@@ -10,7 +10,8 @@ import {
   ClipboardList,
   Calendar,
   UserCheck,
-  Trash2
+  Trash2,
+  Settings
 } from 'lucide-react';
 
 import { Modal, Input, NavItem } from './components/Shared';
@@ -25,6 +26,7 @@ import {
 } from './types';
 import { TREATMENT_CATEGORIES } from './constants';
 import { api } from './services/api';
+import { formatCurrency, Currency } from './utils/currency';
 
 // Lazy Load Views
 const DashboardView = React.lazy(() => import('./components/DashboardView'));
@@ -34,10 +36,11 @@ const DoctorsView = React.lazy(() => import('./components/DoctorsView'));
 const ClinicalView = React.lazy(() => import('./components/ClinicalView'));
 const TreatmentConfigView = React.lazy(() => import('./components/TreatmentConfigView'));
 const RecordsView = React.lazy(() => import('./components/RecordsView'));
+const SettingsView = React.lazy(() => import('./components/SettingsView'));
 const Receipt = React.lazy(() => import('./components/Receipt'));
 const TreatmentSelectionModal = React.lazy(() => import('./components/TreatmentSelectionModal'));
 
-type ViewState = 'dashboard' | 'patients' | 'appointments' | 'doctors' | 'finance' | 'treatments' | 'records';
+type ViewState = 'dashboard' | 'patients' | 'appointments' | 'doctors' | 'finance' | 'treatments' | 'records' | 'settings';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
@@ -73,6 +76,7 @@ const App: React.FC = () => {
   const [selectedTreatmentsForReceipt, setSelectedTreatmentsForReceipt] = useState<ClinicalRecord[]>([]);
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
   const [loadingAvailableTimes, setLoadingAvailableTimes] = useState(false);
+  const [currency, setCurrency] = useState<'USD' | 'MMK'>('USD');
   
   // -- Form State --
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
@@ -465,12 +469,13 @@ const App: React.FC = () => {
       <main className="flex-1 md:ml-64 p-6 md:p-10">
         <div className="max-w-6xl mx-auto">
           <Suspense fallback={<div className="flex justify-center p-20"><Loader2 className="animate-spin text-indigo-600 w-10 h-10" /></div>}>
-            {currentView === 'dashboard' && <DashboardView patients={patients} appointments={appointments} treatmentRecords={globalRecords} />}
+            {currentView === 'dashboard' && <DashboardView patients={patients} appointments={appointments} treatmentRecords={globalRecords} currency={currency} />}
             {currentView === 'patients' && <PatientsView patients={patients} loading={loading} onSelectPatient={handlePatientSelect} onAddPatient={() => setShowPatientModal(true)} />}
             {currentView === 'appointments' && <AppointmentsView appointments={appointments} loading={loading} onAddAppointment={() => {setEditingAppointment(null); setNewAppointmentData({ date: '', time: '', type: 'Checkup', status: 'Scheduled', patient_id: '', doctor_id: '' }); setAvailableTimes([]); setShowAppointmentModal(true)}} onEditAppointment={(apt) => {setEditingAppointment(apt); setNewAppointmentData({ date: apt.date, time: apt.time, type: apt.type || 'Checkup', status: apt.status, patient_id: apt.patient_id, doctor_id: apt.doctor_id, notes: apt.notes }); if (apt.doctor_id && apt.date) fetchAvailableTimes(apt.doctor_id, apt.date); setShowAppointmentModal(true)}} onDeleteAppointment={handleDeleteAppointment} onUpdateStatus={handleUpdateAppointmentStatus} />}
             {currentView === 'doctors' && <DoctorsView doctors={doctors} loading={loading} onAdd={() => {setEditingDoctor(null); setNewDoctorData({ name: '', email: '', phone: '', specialization: '', schedules: [] }); setShowDoctorModal(true)}} onEdit={(doc) => {setEditingDoctor(doc); setNewDoctorData(doc); setShowDoctorModal(true)}} onDelete={handleDeleteDoctor} />}
             {currentView === 'treatments' && <TreatmentConfigView treatmentTypes={treatmentTypes} onAdd={() => {setEditingTreatmentType(null); setShowTreatmentTypeModal(true)}} onEdit={(t) => {setEditingTreatmentType(t); setNewTreatmentTypeData(t); setShowTreatmentTypeModal(true)}} onDelete={handleDeleteTreatmentType} />}
-            {currentView === 'records' && <RecordsView records={globalRecords} loading={loading} onRefresh={fetchGlobalRecords} />}
+            {currentView === 'records' && <RecordsView records={globalRecords} loading={loading} onRefresh={fetchGlobalRecords} onDeleteAll={handleDeleteAllRecords} currency={currency} />}
+            {currentView === 'settings' && <SettingsView currency={currency} onCurrencyChange={setCurrency} />}
             {currentView === 'finance' && <ClinicalView 
                 selectedPatient={selectedPatient} 
                 selectedTeeth={selectedTeeth} 

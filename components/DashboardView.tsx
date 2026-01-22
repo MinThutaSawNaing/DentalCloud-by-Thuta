@@ -3,14 +3,16 @@ import { DollarSign, Activity, Users, Calendar as CalendarIcon } from 'lucide-re
 import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import { StatsCard } from './Shared';
 import { Patient, Appointment, ClinicalRecord } from '../types';
+import { formatCurrency, Currency } from '../utils/currency';
 
 interface DashboardViewProps {
   patients: Patient[];
   appointments: Appointment[];
   treatmentRecords: ClinicalRecord[];
+  currency: Currency;
 }
 
-const DashboardView: React.FC<DashboardViewProps> = ({ patients, appointments, treatmentRecords }) => {
+const DashboardView: React.FC<DashboardViewProps> = ({ patients, appointments, treatmentRecords, currency }) => {
   // Calculate Daily Revenue (today's treatments)
   const dailyRevenue = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
@@ -138,8 +140,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ patients, appointments, t
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatsCard title="Daily Revenue" value={`$${dailyRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<DollarSign className="text-green-600" />} trend={dailyTrend} />
-        <StatsCard title="Monthly Revenue" value={`$${monthlyRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<Activity className="text-blue-600" />} trend={monthlyTrend} />
+        <StatsCard title="Daily Revenue" value={formatCurrency(dailyRevenue, currency)} icon={<DollarSign className="text-green-600" />} trend={dailyTrend} />
+        <StatsCard title="Monthly Revenue" value={formatCurrency(monthlyRevenue, currency)} icon={<Activity className="text-blue-600" />} trend={monthlyTrend} />
         <StatsCard title="Active Patients" value={patients.length.toString()} icon={<Users className="text-indigo-600" />} trend="Stable" />
         <StatsCard title="Appointments Today" value={appointments.filter(a => a.date === new Date().toISOString().split('T')[0]).length.toString()} icon={<CalendarIcon className="text-orange-600" />} trend="Busy" />
       </div>
@@ -159,7 +161,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ patients, appointments, t
               <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6B7280', fontSize: 12}} dy={10} />
               <YAxis axisLine={false} tickLine={false} tick={{fill: '#6B7280', fontSize: 12}} />
               <Tooltip 
-                formatter={(value: number) => [`$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Revenue']}
+                formatter={(value: number) => [formatCurrency(value, currency), 'Revenue']}
               />
               <Area type="monotone" dataKey="value" stroke="#4F46E5" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
             </AreaChart>
@@ -187,7 +189,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ patients, appointments, t
                 <Tooltip 
                   formatter={(value: number, name: string) => {
                     if (name === 'revenue') {
-                      return [`$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Revenue'];
+                      return [formatCurrency(value, currency), 'Revenue'];
                     }
                     return [value, 'Appointments'];
                   }}
@@ -216,7 +218,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ patients, appointments, t
                   width={120}
                 />
                 <Tooltip 
-                  formatter={(value: number) => [`$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Revenue']}
+                  formatter={(value: number) => [formatCurrency(value, currency), 'Revenue']}
                 />
                 <Bar dataKey="revenue" fill="#10B981" radius={[0, 8, 8, 0]} />
               </BarChart>

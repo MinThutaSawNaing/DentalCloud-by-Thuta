@@ -233,6 +233,14 @@ export const api = {
         return [];
       }
     },
+    deleteAllRecords: async (): Promise<void> => {
+      const { error } = await supabase
+        .from('treatments')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all (using a condition that's always true)
+
+      if (error) throw new Error(error.message);
+    },
     record: async (data: { patient_id: string; teeth: number[]; description: string; cost: number }) => {
       // 1. Insert Treatment Record
       const treatmentData = {
