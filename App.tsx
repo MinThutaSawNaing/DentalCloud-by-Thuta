@@ -443,15 +443,15 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex bg-gray-50">
       {/* Sidebar Navigation */}
-      <aside className="w-64 bg-gray-900 fixed h-full z-20 hidden md:block border-r border-gray-800">
-        <div className="p-8 flex items-center gap-3">
+      <aside className="w-64 bg-gray-900 fixed h-full z-20 hidden md:block border-r border-gray-800 flex flex-col">
+        <div className="p-8 flex items-center gap-3 flex-shrink-0">
           <div className="bg-indigo-500 p-2.5 rounded-2xl shadow-lg shadow-indigo-500/20">
             <Activity className="text-white w-6 h-6" />
           </div>
           <span className="text-xl font-black text-white tracking-tight">DentFlow<span className="text-indigo-400">Pro</span></span>
         </div>
         
-        <nav className="mt-8 px-6 space-y-2">
+        <nav className="mt-8 px-6 space-y-2 flex-1 overflow-y-auto pb-4">
           <NavItem icon={<LayoutDashboard size={18} />} label="Overview" active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} />
           <NavItem icon={<Users size={18} />} label="Patients" active={currentView === 'patients'} onClick={() => setCurrentView('patients')} />
           <NavItem icon={<Calendar size={18} />} label="Appointments" active={currentView === 'appointments'} onClick={() => setCurrentView('appointments')} />
@@ -464,13 +464,13 @@ const App: React.FC = () => {
              <NavItem icon={<CreditCard size={18} />} label="Clinical Focus" active={currentView === 'finance'} onClick={() => setCurrentView('finance')} />
           </div>
           
-          <div className="pt-8 pb-24">
+          <div className="pt-8 pb-2">
              <p className="px-3 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">System</p>
              <NavItem icon={<Settings size={18} />} label="Settings" active={currentView === 'settings'} onClick={() => setCurrentView('settings')} />
           </div>
         </nav>
 
-        <div className="absolute bottom-8 left-0 w-full px-8">
+        <div className="p-8 pt-4 flex-shrink-0 border-t border-gray-800">
            <div className="p-4 bg-gray-800 rounded-2xl border border-gray-700">
               <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-2">Connected Database</p>
               <div className="flex items-center gap-2">
