@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Patient, Appointment, ClinicalRecord, TreatmentType, PatientFile } from '../types';
+import { Patient, Appointment, ClinicalRecord, TreatmentType, PatientFile, Doctor, DoctorSchedule } from '../types';
 
 // Utility: map DB snake_case fields to app camelCase
 const mapPatient = (row: any): Patient => ({
@@ -69,10 +69,10 @@ export const api = {
   appointments: {
     getAll: async (): Promise<Appointment[]> => {
       try {
-        // Fetch appointments and join with patients to get the name
+        // Fetch appointments and join with patients and doctors to get the names
         const { data, error } = await supabase
           .from('appointments')
-          .select('*, patients(name)')
+          .select('*, patients(name), doctors(name)')
           .order('date');
 
         if (error) throw error;
@@ -80,7 +80,8 @@ export const api = {
         // Flatten the response to match the Appointment interface
         return (data || []).map((apt: any) => ({
           ...apt,
-          patient_name: apt.patients?.name || 'Unknown'
+          patient_name: apt.patients?.name || 'Unknown',
+          doctor_name: apt.doctors?.name || undefined
         }));
       } catch (err) {
         console.warn("Error fetching appointments:", err);
@@ -91,7 +92,7 @@ export const api = {
       const { data: result, error } = await supabase
         .from('appointments')
         .insert(data)
-        .select('*, patients(name)')
+        .select('*, patients(name), doctors(name)')
         .single();
 
       if (error) throw new Error(error.message);
@@ -99,7 +100,8 @@ export const api = {
       // Flatten the response
       return {
         ...result,
-        patient_name: result.patients?.name || 'Unknown'
+        patient_name: result.patients?.name || 'Unknown',
+        doctor_name: result.doctors?.name || undefined
       };
     },
     updateStatus: async (id: string, status: string): Promise<void> => {
@@ -115,7 +117,7 @@ export const api = {
         .from('appointments')
         .update(data)
         .eq('id', id)
-        .select('*, patients(name)')
+        .select('*, patients(name), doctors(name)')
         .single();
 
       if (error) throw new Error(error.message);
@@ -123,7 +125,8 @@ export const api = {
       // Flatten the response
       return {
         ...result,
-        patient_name: result.patients?.name || 'Unknown'
+        patient_name: result.patients?.name || 'Unknown',
+        doctor_name: result.doctors?.name || undefined
       };
     },
     delete: async (id: string): Promise<void> => {
@@ -248,6 +251,221 @@ export const api = {
       if (updateError) throw new Error(updateError.message);
       
       return { status: "success", new_balance: newBalance };
+    }
+  },
+
+  doctors: {
+    getAll: async (): Promise<Doctor[]> => {
+      try {
+        const { data, error } = await supabase
+          .from('doctors')
+          .select('*, doctor_schedules(*)')
+          .order('name');
+        
+        if (error) throw error;
+        
+        // Transform the data to match Doctor interface
+        return (data || []).map((doc: any) => ({
+          id: doc.id,
+          name: doc.name,
+          email: doc.email,
+          phone: doc.phone,
+          specialization: doc.specialization,
+          schedules: (doc.doctor_schedules || []).map((sched: any) => ({
+            id: sched.id,
+            day_of_week: sched.day_of_week,
+            start_time: sched.start_time,
+            end_time: sched.end_time
+          })),
+          created_at: doc.created_at
+        }));
+      } catch (err) {
+        console.warn("Error fetching doctors:", err);
+        return [];
+      }
+    },
+    create: async (data: Partial<Doctor>): Promise<Doctor> => {
+      // First create the doctor
+      const { data: doctorData, error: doctorError } = await supabase
+        .from('doctors')
+        .insert({
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          specialization: data.specialization
+        })
+        .select()
+        .single();
+
+      if (doctorError) throw new Error(doctorError.message);
+
+      // Then create schedules if provided
+      if (data.schedules && data.schedules.length > 0) {
+        const schedules = data.schedules.map(sched => ({
+          doctor_id: doctorData.id,
+          day_of_week: sched.day_of_week,
+          start_time: sched.start_time,
+          end_time: sched.end_time
+        }));
+
+        const { error: scheduleError } = await supabase
+          .from('doctor_schedules')
+          .insert(schedules);
+
+        if (scheduleError) throw new Error(scheduleError.message);
+      }
+
+      // Fetch the complete doctor with schedules
+      const { data: completeDoctor, error: fetchError } = await supabase
+        .from('doctors')
+        .select('*, doctor_schedules(*)')
+        .eq('id', doctorData.id)
+        .single();
+
+      if (fetchError) throw new Error(fetchError.message);
+
+      return {
+        id: completeDoctor.id,
+        name: completeDoctor.name,
+        email: completeDoctor.email,
+        phone: completeDoctor.phone,
+        specialization: completeDoctor.specialization,
+        schedules: (completeDoctor.doctor_schedules || []).map((sched: any) => ({
+          id: sched.id,
+          day_of_week: sched.day_of_week,
+          start_time: sched.start_time,
+          end_time: sched.end_time
+        })),
+        created_at: completeDoctor.created_at
+      };
+    },
+    update: async (id: string, data: Partial<Doctor>): Promise<Doctor> => {
+      // Update doctor info
+      const { error: doctorError } = await supabase
+        .from('doctors')
+        .update({
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          specialization: data.specialization
+        })
+        .eq('id', id);
+
+      if (doctorError) throw new Error(doctorError.message);
+
+      // Update schedules if provided
+      if (data.schedules !== undefined) {
+        // Delete existing schedules
+        await supabase
+          .from('doctor_schedules')
+          .delete()
+          .eq('doctor_id', id);
+
+        // Insert new schedules
+        if (data.schedules.length > 0) {
+          const schedules = data.schedules.map(sched => ({
+            doctor_id: id,
+            day_of_week: sched.day_of_week,
+            start_time: sched.start_time,
+            end_time: sched.end_time
+          }));
+
+          const { error: scheduleError } = await supabase
+            .from('doctor_schedules')
+            .insert(schedules);
+
+          if (scheduleError) throw new Error(scheduleError.message);
+        }
+      }
+
+      // Fetch updated doctor
+      const { data: updatedDoctor, error: fetchError } = await supabase
+        .from('doctors')
+        .select('*, doctor_schedules(*)')
+        .eq('id', id)
+        .single();
+
+      if (fetchError) throw new Error(fetchError.message);
+
+      return {
+        id: updatedDoctor.id,
+        name: updatedDoctor.name,
+        email: updatedDoctor.email,
+        phone: updatedDoctor.phone,
+        specialization: updatedDoctor.specialization,
+        schedules: (updatedDoctor.doctor_schedules || []).map((sched: any) => ({
+          id: sched.id,
+          day_of_week: sched.day_of_week,
+          start_time: sched.start_time,
+          end_time: sched.end_time
+        })),
+        created_at: updatedDoctor.created_at
+      };
+    },
+    delete: async (id: string): Promise<void> => {
+      // Delete schedules first (cascade should handle this, but being explicit)
+      await supabase
+        .from('doctor_schedules')
+        .delete()
+        .eq('doctor_id', id);
+
+      // Delete doctor
+      const { error } = await supabase
+        .from('doctors')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw new Error(error.message);
+    },
+    getAvailableTimes: async (doctorId: string, date: string): Promise<string[]> => {
+      // Get doctor's schedules
+      const { data: doctor, error: doctorError } = await supabase
+        .from('doctors')
+        .select('*, doctor_schedules(*)')
+        .eq('id', doctorId)
+        .single();
+
+      if (doctorError) throw new Error(doctorError.message);
+
+      // Get day of week (0 = Sunday, 1 = Monday, etc.)
+      const appointmentDate = new Date(date);
+      const dayOfWeek = appointmentDate.getDay();
+
+      // Find schedules for this day
+      const daySchedules = (doctor.doctor_schedules || []).filter(
+        (sched: any) => sched.day_of_week === dayOfWeek
+      );
+
+      if (daySchedules.length === 0) return [];
+
+      // Get existing appointments for this doctor on this date
+      const { data: existingAppointments } = await supabase
+        .from('appointments')
+        .select('time')
+        .eq('doctor_id', doctorId)
+        .eq('date', date)
+        .eq('status', 'Scheduled');
+
+      const bookedTimes = new Set((existingAppointments || []).map((apt: any) => apt.time));
+
+      // Generate available time slots (30-minute intervals)
+      const availableTimes: string[] = [];
+      
+      daySchedules.forEach((schedule: any) => {
+        const start = new Date(`2000-01-01T${schedule.start_time}`);
+        const end = new Date(`2000-01-01T${schedule.end_time}`);
+        
+        let current = new Date(start);
+        while (current < end) {
+          const timeStr = current.toTimeString().slice(0, 5); // HH:MM format
+          if (!bookedTimes.has(timeStr)) {
+            availableTimes.push(timeStr);
+          }
+          current.setMinutes(current.getMinutes() + 30);
+        }
+      });
+
+      return availableTimes.sort();
     }
   },
 

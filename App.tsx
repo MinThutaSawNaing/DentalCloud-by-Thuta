@@ -8,7 +8,9 @@ import {
   Loader2,
   Stethoscope,
   ClipboardList,
-  Calendar
+  Calendar,
+  UserCheck,
+  Trash2
 } from 'lucide-react';
 
 import { Modal, Input, NavItem } from './components/Shared';
@@ -17,7 +19,9 @@ import {
   Appointment, 
   TreatmentType, 
   ClinicalRecord,
-  PatientFile
+  PatientFile,
+  Doctor,
+  DoctorSchedule
 } from './types';
 import { TREATMENT_CATEGORIES } from './constants';
 import { api } from './services/api';
@@ -26,13 +30,14 @@ import { api } from './services/api';
 const DashboardView = React.lazy(() => import('./components/DashboardView'));
 const PatientsView = React.lazy(() => import('./components/PatientsView'));
 const AppointmentsView = React.lazy(() => import('./components/AppointmentsView'));
+const DoctorsView = React.lazy(() => import('./components/DoctorsView'));
 const ClinicalView = React.lazy(() => import('./components/ClinicalView'));
 const TreatmentConfigView = React.lazy(() => import('./components/TreatmentConfigView'));
 const RecordsView = React.lazy(() => import('./components/RecordsView'));
 const Receipt = React.lazy(() => import('./components/Receipt'));
 const TreatmentSelectionModal = React.lazy(() => import('./components/TreatmentSelectionModal'));
 
-type ViewState = 'dashboard' | 'patients' | 'appointments' | 'finance' | 'treatments' | 'records';
+type ViewState = 'dashboard' | 'patients' | 'appointments' | 'doctors' | 'finance' | 'treatments' | 'records';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
@@ -40,6 +45,7 @@ const App: React.FC = () => {
   // -- Data State --
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [treatmentHistory, setTreatmentHistory] = useState<ClinicalRecord[]>([]); 
   const [globalRecords, setGlobalRecords] = useState<ClinicalRecord[]>([]); 
   const [treatmentTypes, setTreatmentTypes] = useState<TreatmentType[]>([]);
@@ -53,22 +59,27 @@ const App: React.FC = () => {
   const [selectedTeeth, setSelectedTeeth] = useState<number[]>([]);
   const [editingTreatmentType, setEditingTreatmentType] = useState<TreatmentType | null>(null);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+  const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
   
   // -- Modals State --
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showPatientModal, setShowPatientModal] = useState(false);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [showTreatmentTypeModal, setShowTreatmentTypeModal] = useState(false);
+  const [showDoctorModal, setShowDoctorModal] = useState(false);
   const [showReceipt, setShowReceipt] = useState(false);
   const [showTreatmentSelection, setShowTreatmentSelection] = useState(false);
   const [lastPaymentAmount, setLastPaymentAmount] = useState<number>(0);
   const [selectedTreatmentsForReceipt, setSelectedTreatmentsForReceipt] = useState<ClinicalRecord[]>([]);
+  const [availableTimes, setAvailableTimes] = useState<string[]>([]);
+  const [loadingAvailableTimes, setLoadingAvailableTimes] = useState(false);
   
   // -- Form State --
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
   const [newPatientData, setNewPatientData] = useState<Partial<Patient>>({ name: '', email: '', phone: '', medicalHistory: '' });
-  const [newAppointmentData, setNewAppointmentData] = useState<Partial<Appointment>>({ date: '', time: '', type: 'Checkup', status: 'Scheduled', patient_id: '' });
+  const [newAppointmentData, setNewAppointmentData] = useState<Partial<Appointment>>({ date: '', time: '', type: 'Checkup', status: 'Scheduled', patient_id: '', doctor_id: '' });
   const [newTreatmentTypeData, setNewTreatmentTypeData] = useState<Partial<TreatmentType>>({ name: '', cost: 0, category: 'Preventative' });
+  const [newDoctorData, setNewDoctorData] = useState<Partial<Doctor>>({ name: '', email: '', phone: '', specialization: '', schedules: [] });
 
   useEffect(() => {
     fetchInitialData();
@@ -78,14 +89,16 @@ const App: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const [patData, aptData, typeData, recordsData] = await Promise.all([
+      const [patData, aptData, docData, typeData, recordsData] = await Promise.all([
         api.patients.getAll(),
         api.appointments.getAll(),
+        api.doctors.getAll(),
         api.treatments.getTypes(),
         api.treatments.getAllRecords()
       ]);
       setPatients(patData);
       setAppointments(aptData);
+      setDoctors(docData);
       setTreatmentTypes(typeData);
       setGlobalRecords(recordsData);
     } catch (err: any) {
@@ -153,7 +166,67 @@ const App: React.FC = () => {
       setShowAppointmentModal(false);
       fetchInitialData();
       setEditingAppointment(null);
-      setNewAppointmentData({ date: '', time: '', type: 'Checkup', status: 'Scheduled', patient_id: '' });
+      setNewAppointmentData({ date: '', time: '', type: 'Checkup', status: 'Scheduled', patient_id: '', doctor_id: '' });
+      setAvailableTimes([]);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleDoctorChange = async (doctorId: string) => {
+    setNewAppointmentData({ ...newAppointmentData, doctor_id: doctorId, time: '' });
+    setAvailableTimes([]);
+    
+    if (doctorId && newAppointmentData.date) {
+      await fetchAvailableTimes(doctorId, newAppointmentData.date);
+    }
+  };
+
+  const handleDateChange = async (date: string) => {
+    setNewAppointmentData({ ...newAppointmentData, date, time: '' });
+    setAvailableTimes([]);
+    
+    if (date && newAppointmentData.doctor_id) {
+      await fetchAvailableTimes(newAppointmentData.doctor_id, date);
+    }
+  };
+
+  const fetchAvailableTimes = async (doctorId: string, date: string) => {
+    if (!doctorId || !date) return;
+    
+    setLoadingAvailableTimes(true);
+    try {
+      const times = await api.doctors.getAvailableTimes(doctorId, date);
+      setAvailableTimes(times);
+    } catch (err: any) {
+      console.error('Error fetching available times:', err);
+      setAvailableTimes([]);
+    } finally {
+      setLoadingAvailableTimes(false);
+    }
+  };
+
+  const handleCreateDoctor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (editingDoctor) {
+        await api.doctors.update(editingDoctor.id, newDoctorData);
+      } else {
+        await api.doctors.create(newDoctorData);
+      }
+      setShowDoctorModal(false);
+      fetchInitialData();
+      setEditingDoctor(null);
+      setNewDoctorData({ name: '', email: '', phone: '', specialization: '', schedules: [] });
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteDoctor = async (id: string) => {
+    try {
+      await api.doctors.delete(id);
+      fetchInitialData();
     } catch (err: any) {
       alert(err.message);
     }
@@ -324,6 +397,7 @@ const App: React.FC = () => {
           <NavItem icon={<LayoutDashboard size={18} />} label="Overview" active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} />
           <NavItem icon={<Users size={18} />} label="Patients" active={currentView === 'patients'} onClick={() => setCurrentView('patients')} />
           <NavItem icon={<Calendar size={18} />} label="Appointments" active={currentView === 'appointments'} onClick={() => setCurrentView('appointments')} />
+          <NavItem icon={<UserCheck size={18} />} label="Doctors" active={currentView === 'doctors'} onClick={() => setCurrentView('doctors')} />
           
           <div className="pt-8 pb-2">
              <p className="px-3 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">Operations</p>
@@ -349,7 +423,8 @@ const App: React.FC = () => {
           <Suspense fallback={<div className="flex justify-center p-20"><Loader2 className="animate-spin text-indigo-600 w-10 h-10" /></div>}>
             {currentView === 'dashboard' && <DashboardView patients={patients} appointments={appointments} treatmentRecords={globalRecords} />}
             {currentView === 'patients' && <PatientsView patients={patients} loading={loading} onSelectPatient={handlePatientSelect} onAddPatient={() => setShowPatientModal(true)} />}
-            {currentView === 'appointments' && <AppointmentsView appointments={appointments} loading={loading} onAddAppointment={() => {setEditingAppointment(null); setNewAppointmentData({ date: '', time: '', type: 'Checkup', status: 'Scheduled', patient_id: '' }); setShowAppointmentModal(true)}} onEditAppointment={(apt) => {setEditingAppointment(apt); setNewAppointmentData({ date: apt.date, time: apt.time, type: apt.type || 'Checkup', status: apt.status, patient_id: apt.patient_id, notes: apt.notes }); setShowAppointmentModal(true)}} onDeleteAppointment={handleDeleteAppointment} onUpdateStatus={handleUpdateAppointmentStatus} />}
+            {currentView === 'appointments' && <AppointmentsView appointments={appointments} loading={loading} onAddAppointment={() => {setEditingAppointment(null); setNewAppointmentData({ date: '', time: '', type: 'Checkup', status: 'Scheduled', patient_id: '', doctor_id: '' }); setAvailableTimes([]); setShowAppointmentModal(true)}} onEditAppointment={(apt) => {setEditingAppointment(apt); setNewAppointmentData({ date: apt.date, time: apt.time, type: apt.type || 'Checkup', status: apt.status, patient_id: apt.patient_id, doctor_id: apt.doctor_id, notes: apt.notes }); if (apt.doctor_id && apt.date) fetchAvailableTimes(apt.doctor_id, apt.date); setShowAppointmentModal(true)}} onDeleteAppointment={handleDeleteAppointment} onUpdateStatus={handleUpdateAppointmentStatus} />}
+            {currentView === 'doctors' && <DoctorsView doctors={doctors} loading={loading} onAdd={() => {setEditingDoctor(null); setNewDoctorData({ name: '', email: '', phone: '', specialization: '', schedules: [] }); setShowDoctorModal(true)}} onEdit={(doc) => {setEditingDoctor(doc); setNewDoctorData(doc); setShowDoctorModal(true)}} onDelete={handleDeleteDoctor} />}
             {currentView === 'treatments' && <TreatmentConfigView treatmentTypes={treatmentTypes} onAdd={() => {setEditingTreatmentType(null); setShowTreatmentTypeModal(true)}} onEdit={(t) => {setEditingTreatmentType(t); setNewTreatmentTypeData(t); setShowTreatmentTypeModal(true)}} onDelete={handleDeleteTreatmentType} />}
             {currentView === 'records' && <RecordsView records={globalRecords} loading={loading} onRefresh={fetchGlobalRecords} />}
             {currentView === 'finance' && <ClinicalView 
@@ -392,7 +467,7 @@ const App: React.FC = () => {
       )}
 
       {showAppointmentModal && (
-        <Modal title={editingAppointment ? "Edit Appointment" : "New Appointment"} onClose={() => {setShowAppointmentModal(false); setEditingAppointment(null);}}>
+        <Modal title={editingAppointment ? "Edit Appointment" : "New Appointment"} onClose={() => {setShowAppointmentModal(false); setEditingAppointment(null); setAvailableTimes([]);}}>
           <form onSubmit={handleCreateAppointment} className="space-y-5">
             <div>
               <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">Patient</label>
@@ -408,21 +483,59 @@ const App: React.FC = () => {
                 ))}
               </select>
             </div>
+            <div>
+              <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">Doctor (Optional)</label>
+              <select 
+                className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500"
+                value={newAppointmentData.doctor_id || ''} 
+                onChange={(e: any) => handleDoctorChange(e.target.value)}
+              >
+                <option value="">No specific doctor</option>
+                {doctors.map(doctor => (
+                  <option key={doctor.id} value={doctor.id}>{doctor.name}{doctor.specialization ? ` - ${doctor.specialization}` : ''}</option>
+                ))}
+              </select>
+            </div>
             <div className="grid grid-cols-2 gap-4">
-              <Input 
-                label="Date" 
-                type="date" 
-                required 
-                value={newAppointmentData.date} 
-                onChange={(e: any) => setNewAppointmentData({...newAppointmentData, date: e.target.value})} 
-              />
-              <Input 
-                label="Time" 
-                type="time" 
-                required 
-                value={newAppointmentData.time} 
-                onChange={(e: any) => setNewAppointmentData({...newAppointmentData, time: e.target.value})} 
-              />
+              <div>
+                <Input 
+                  label="Date" 
+                  type="date" 
+                  required 
+                  value={newAppointmentData.date} 
+                  onChange={(e: any) => handleDateChange(e.target.value)} 
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">Time</label>
+                {availableTimes.length > 0 ? (
+                  <select
+                    className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500"
+                    required
+                    value={newAppointmentData.time}
+                    onChange={(e: any) => setNewAppointmentData({...newAppointmentData, time: e.target.value})}
+                  >
+                    <option value="">Select available time</option>
+                    {availableTimes.map(time => (
+                      <option key={time} value={time}>{time}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div>
+                    <Input 
+                      type="time" 
+                      required 
+                      value={newAppointmentData.time} 
+                      onChange={(e: any) => setNewAppointmentData({...newAppointmentData, time: e.target.value})} 
+                    />
+                    {newAppointmentData.doctor_id && newAppointmentData.date && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {loadingAvailableTimes ? 'Loading available times...' : 'No schedule set for this day or all times booked'}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -464,6 +577,101 @@ const App: React.FC = () => {
             </div>
             <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-600/20">
               {editingAppointment ? 'Update Appointment' : 'Create Appointment'}
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      {showDoctorModal && (
+        <Modal title={editingDoctor ? "Edit Doctor" : "New Doctor"} onClose={() => {setShowDoctorModal(false); setEditingDoctor(null);}}>
+          <form onSubmit={handleCreateDoctor} className="space-y-5">
+            <Input label="Doctor Name" required value={newDoctorData.name} onChange={(e: any) => setNewDoctorData({...newDoctorData, name: e.target.value})} />
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="Email" type="email" value={newDoctorData.email} onChange={(e: any) => setNewDoctorData({...newDoctorData, email: e.target.value})} />
+              <Input label="Phone" value={newDoctorData.phone} onChange={(e: any) => setNewDoctorData({...newDoctorData, phone: e.target.value})} />
+            </div>
+            <Input label="Specialization" value={newDoctorData.specialization} onChange={(e: any) => setNewDoctorData({...newDoctorData, specialization: e.target.value})} placeholder="e.g., Orthodontics, Oral Surgery" />
+            
+            <div>
+              <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">Working Schedule</label>
+              <div className="space-y-3 border border-gray-200 rounded-xl p-4 bg-gray-50">
+                {(newDoctorData.schedules || []).map((schedule, index) => (
+                  <div key={index} className="flex gap-2 items-end bg-white p-3 rounded-lg border border-gray-200">
+                    <div className="flex-1">
+                      <label className="block text-xs text-gray-600 mb-1">Day</label>
+                      <select
+                        className="w-full border-gray-200 border rounded-lg p-2 text-sm"
+                        value={schedule.day_of_week}
+                        onChange={(e: any) => {
+                          const updated = [...(newDoctorData.schedules || [])];
+                          updated[index].day_of_week = parseInt(e.target.value);
+                          setNewDoctorData({...newDoctorData, schedules: updated});
+                        }}
+                      >
+                        <option value={0}>Sunday</option>
+                        <option value={1}>Monday</option>
+                        <option value={2}>Tuesday</option>
+                        <option value={3}>Wednesday</option>
+                        <option value={4}>Thursday</option>
+                        <option value={5}>Friday</option>
+                        <option value={6}>Saturday</option>
+                      </select>
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs text-gray-600 mb-1">Start Time</label>
+                      <input
+                        type="time"
+                        className="w-full border-gray-200 border rounded-lg p-2 text-sm"
+                        value={schedule.start_time}
+                        onChange={(e: any) => {
+                          const updated = [...(newDoctorData.schedules || [])];
+                          updated[index].start_time = e.target.value;
+                          setNewDoctorData({...newDoctorData, schedules: updated});
+                        }}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs text-gray-600 mb-1">End Time</label>
+                      <input
+                        type="time"
+                        className="w-full border-gray-200 border rounded-lg p-2 text-sm"
+                        value={schedule.end_time}
+                        onChange={(e: any) => {
+                          const updated = [...(newDoctorData.schedules || [])];
+                          updated[index].end_time = e.target.value;
+                          setNewDoctorData({...newDoctorData, schedules: updated});
+                        }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = [...(newDoctorData.schedules || [])];
+                        updated.splice(index, 1);
+                        setNewDoctorData({...newDoctorData, schedules: updated});
+                      }}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewDoctorData({
+                      ...newDoctorData,
+                      schedules: [...(newDoctorData.schedules || []), { id: '', day_of_week: 1, start_time: '09:00', end_time: '17:00' }]
+                    });
+                  }}
+                  className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:border-indigo-400 hover:text-indigo-600 transition-colors"
+                >
+                  + Add Schedule
+                </button>
+              </div>
+            </div>
+            <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-600/20">
+              {editingDoctor ? 'Update Doctor' : 'Create Doctor'}
             </button>
           </form>
         </Modal>

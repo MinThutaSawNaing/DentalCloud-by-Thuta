@@ -138,6 +138,12 @@ const AppointmentsView: React.FC<AppointmentsViewProps> = ({
                             <Calendar className="w-3 h-3" />
                             {formatDate(appointment.date)}
                           </span>
+                          {appointment.doctor_name && (
+                            <span className="flex items-center gap-1 text-indigo-600 font-medium">
+                              <User className="w-3 h-3" />
+                              Dr. {appointment.doctor_name}
+                            </span>
+                          )}
                         </div>
                         {appointment.notes && (
                           <p className="text-xs text-gray-600 mt-2 italic">{appointment.notes}</p>
