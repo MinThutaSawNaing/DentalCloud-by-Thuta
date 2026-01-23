@@ -76,6 +76,7 @@ const App: React.FC = () => {
   // -- Selection State --
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [selectedTeeth, setSelectedTeeth] = useState<number[]>([]);
+  const [useFlatRate, setUseFlatRate] = useState(false);
   const [editingTreatmentType, setEditingTreatmentType] = useState<TreatmentType | null>(null);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
@@ -489,8 +490,10 @@ const App: React.FC = () => {
 
   const handleTreatmentSubmit = async (treatment: TreatmentType) => {
     if (!selectedPatient) return;
-    const count = selectedTeeth.length || 1;
-    const totalCost = treatment.cost * count;
+    
+    // If flat rate is enabled, use treatment cost as-is (not multiplied by teeth count)
+    // Otherwise, multiply by number of selected teeth
+    const totalCost = useFlatRate ? treatment.cost : (treatment.cost * (selectedTeeth.length || 1));
     
     try {
       const res = await api.treatments.record({
@@ -512,6 +515,7 @@ const App: React.FC = () => {
       };
       setTreatmentHistory([newRecord, ...treatmentHistory]);
       setSelectedTeeth([]);
+      setUseFlatRate(false); // Reset flat rate after treatment
     } catch (err: any) {
       alert(err.message);
     }
@@ -623,6 +627,7 @@ const App: React.FC = () => {
     setSelectedTeeth([]);
     setTreatmentHistory([]);
     setPatientFiles([]);
+    setUseFlatRate(false); // Reset flat rate when closing patient
   };
 
   // Show login if not authenticated
@@ -733,6 +738,7 @@ const App: React.FC = () => {
                 treatmentHistory={treatmentHistory}
                 patientFiles={patientFiles}
                 uploadingFiles={uploading}
+                useFlatRate={useFlatRate}
                 onUploadFiles={handleUploadFiles}
                 onDeleteFile={handleDeleteFile}
                 onToggleTooth={(id) => selectedTeeth.includes(id) ? setSelectedTeeth(selectedTeeth.filter(t => t !== id)) : setSelectedTeeth([...selectedTeeth, id])}
@@ -742,6 +748,7 @@ const App: React.FC = () => {
                 onOpenDirectory={() => setCurrentView('patients')}
                 onGenerateReceipt={handleGenerateReceipt}
                 onAddMedicines={handleAddMedicines}
+                onToggleFlatRate={setUseFlatRate}
             />}
           </Suspense>
         </div>

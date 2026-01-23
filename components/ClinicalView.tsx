@@ -10,6 +10,7 @@ interface ClinicalViewProps {
   treatmentHistory: ClinicalRecord[];
   patientFiles: PatientFile[];
   uploadingFiles: boolean;
+  useFlatRate: boolean;
   onToggleTooth: (id: number) => void;
   onTreatmentSubmit: (t: TreatmentType) => void;
   onPaymentRequest: (amount: number) => void;
@@ -19,6 +20,7 @@ interface ClinicalViewProps {
   onDeleteFile: (path: string) => void;
   onGenerateReceipt: () => void;
   onAddMedicines?: () => void;
+  onToggleFlatRate: (value: boolean) => void;
 }
 
 const ClinicalView: React.FC<ClinicalViewProps> = ({
@@ -28,6 +30,7 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
   treatmentHistory,
   patientFiles,
   uploadingFiles,
+  useFlatRate,
   onToggleTooth,
   onTreatmentSubmit,
   onPaymentRequest,
@@ -36,7 +39,8 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
   onUploadFiles,
   onDeleteFile,
   onGenerateReceipt,
-  onAddMedicines
+  onAddMedicines,
+  onToggleFlatRate
 }) => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -88,19 +92,48 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
               <h4 className="font-bold text-indigo-900">
                 {selectedTeeth.length > 0 ? `Apply to Teeth: ${selectedTeeth.join(', ')}` : 'Select Teeth to Perform Treatment'}
               </h4>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={useFlatRate}
+                  onChange={(e) => onToggleFlatRate(e.target.checked)}
+                  className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                />
+                <span className="text-sm font-medium text-indigo-900">
+                  Flat Rate (All Teeth)
+                </span>
+              </label>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-               {treatmentTypes.map(t => (
-                 <button 
-                  key={t.id}
-                  disabled={selectedTeeth.length === 0}
-                  onClick={() => onTreatmentSubmit(t)}
-                  className="flex flex-col items-start bg-white hover:bg-indigo-600 hover:text-white p-3 rounded-xl border border-indigo-100 text-left transition-all shadow-sm group disabled:opacity-50 disabled:cursor-not-allowed"
-                 >
-                   <span className="text-sm font-bold group-hover:text-white text-gray-900">{t.name}</span>
-                   <span className="text-xs text-indigo-600 group-hover:text-indigo-100">${t.cost} / tooth</span>
-                 </button>
-               ))}
+               {treatmentTypes.map(t => {
+                 const displayCost = useFlatRate 
+                   ? t.cost 
+                   : (t.cost * (selectedTeeth.length || 1));
+                 const costLabel = useFlatRate 
+                   ? `$${t.cost.toFixed(2)} (flat rate)` 
+                   : `$${t.cost.toFixed(2)} / tooth`;
+                 const isDisabled = !useFlatRate && selectedTeeth.length === 0;
+                 
+                 return (
+                   <button 
+                    key={t.id}
+                    disabled={isDisabled}
+                    onClick={() => onTreatmentSubmit(t)}
+                    className="flex flex-col items-start bg-white hover:bg-indigo-600 hover:text-white p-3 rounded-xl border border-indigo-100 text-left transition-all shadow-sm group disabled:opacity-50 disabled:cursor-not-allowed"
+                   >
+                     <span className="text-sm font-bold group-hover:text-white text-gray-900">{t.name}</span>
+                     <span className="text-xs text-indigo-600 group-hover:text-indigo-100">
+                       {costLabel}
+                       {!useFlatRate && selectedTeeth.length > 0 && (
+                         <span className="block mt-0.5 font-semibold">Total: ${displayCost.toFixed(2)}</span>
+                       )}
+                       {useFlatRate && (
+                         <span className="block mt-0.5 font-semibold text-green-600 group-hover:text-green-200">Flat: ${displayCost.toFixed(2)}</span>
+                       )}
+                     </span>
+                   </button>
+                 );
+               })}
             </div>
           </div>
         )}
