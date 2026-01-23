@@ -33,6 +33,7 @@ import { TREATMENT_CATEGORIES } from './constants';
 import { api } from './services/api';
 import { formatCurrency, Currency } from './utils/currency';
 import { auth } from './services/auth';
+import { supabase } from './services/supabase';
 
 // Lazy Load Views
 const DashboardView = React.lazy(() => import('./components/DashboardView'));
@@ -79,7 +80,6 @@ const App: React.FC = () => {
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
-  const [pendingTreatment, setPendingTreatment] = useState<TreatmentType | null>(null);
   
   // -- Modals State --
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -489,68 +489,80 @@ const App: React.FC = () => {
 
   const handleTreatmentSubmit = async (treatment: TreatmentType) => {
     if (!selectedPatient) return;
-    // Store the treatment and show medicine selection modal
-    setPendingTreatment(treatment);
-    setShowMedicineSelectionModal(true);
-  };
-
-  const handleMedicineSelectionConfirm = async (selectedMedicines: { medicine: Medicine; quantity: number }[]) => {
-    if (!selectedPatient || !pendingTreatment) return;
-    
-    setShowMedicineSelectionModal(false);
-    
     const count = selectedTeeth.length || 1;
-    const treatmentCost = pendingTreatment.cost * count;
-    
-    // Calculate medicine cost
-    const medicineCost = selectedMedicines.reduce((sum, item) => sum + (item.medicine.price * item.quantity), 0);
-    const totalCost = treatmentCost + medicineCost;
+    const totalCost = treatment.cost * count;
     
     try {
-      // Record treatment
-      const treatmentRes = await api.treatments.record({
+      const res = await api.treatments.record({
         patient_id: selectedPatient.id,
         teeth: selectedTeeth,
-        description: pendingTreatment.name,
-        cost: treatmentCost
+        description: treatment.name,
+        cost: totalCost
       });
-
-      // Record medicine sales
-      let treatmentRecordId: string | undefined;
-      for (const item of selectedMedicines) {
-        const saleRes = await api.medicines.sell(
-          selectedPatient.id,
-          item.medicine.id,
-          item.quantity
-        );
-        // Use the first treatment record ID for linking (if needed)
-        if (!treatmentRecordId) {
-          treatmentRecordId = saleRes.sale.treatment_id;
-        }
-      }
-
-      // Update patient balance (medicines already updated it, but we need to account for treatment)
-      const finalBalance = treatmentRes.new_balance;
-      setSelectedPatient({ ...selectedPatient, balance: finalBalance });
       
-      // Update treatment history
+      setSelectedPatient({ ...selectedPatient, balance: res.new_balance });
+      
       const newRecord: ClinicalRecord = {
         id: Math.random().toString(), 
         patient_id: selectedPatient.id,
         teeth: selectedTeeth,
-        description: pendingTreatment.name + (selectedMedicines.length > 0 ? ` + ${selectedMedicines.length} medicine(s)` : ''),
+        description: treatment.name,
         cost: totalCost,
         date: new Date().toISOString().split('T')[0]
       };
       setTreatmentHistory([newRecord, ...treatmentHistory]);
       setSelectedTeeth([]);
-      setPendingTreatment(null);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleAddMedicines = () => {
+    if (!selectedPatient) return;
+    setShowMedicineSelectionModal(true);
+  };
+
+  const handleMedicineSelectionConfirm = async (selectedMedicines: { medicine: Medicine; quantity: number }[]) => {
+    if (!selectedPatient) return;
+    
+    if (selectedMedicines.length === 0) {
+      setShowMedicineSelectionModal(false);
+      return;
+    }
+    
+    setShowMedicineSelectionModal(false);
+    
+    // Calculate medicine cost
+    const medicineCost = selectedMedicines.reduce((sum, item) => sum + (item.medicine.price * item.quantity), 0);
+    
+    try {
+      // Record medicine sales
+      for (const item of selectedMedicines) {
+        await api.medicines.sell(
+          selectedPatient.id,
+          item.medicine.id,
+          item.quantity
+        );
+      }
+
+      // Update patient balance (medicines already updated it in the sell function)
+      const { data: patient } = await supabase
+        .from('patients')
+        .select('balance')
+        .eq('id', selectedPatient.id)
+        .single();
+
+      if (patient) {
+        setSelectedPatient({ ...selectedPatient, balance: patient.balance });
+      }
       
       // Refresh medicines to update stock
       await fetchMedicines();
+      
+      // Show success message
+      alert(`Successfully added ${selectedMedicines.length} medicine(s) to patient's bill. Total: $${medicineCost.toFixed(2)}`);
     } catch (err: any) {
       alert(err.message);
-      setPendingTreatment(null);
     }
   };
 
@@ -663,11 +675,11 @@ const App: React.FC = () => {
              <NavItem icon={<Stethoscope size={18} />} label="Service Menu" active={currentView === 'treatments'} onClick={() => setCurrentView('treatments')} />
              <NavItem icon={<ClipboardList size={18} />} label="Audit Log" active={currentView === 'records'} onClick={() => setCurrentView('records')} />
              <NavItem icon={<CreditCard size={18} />} label="Clinical Focus" active={currentView === 'finance'} onClick={() => setCurrentView('finance')} />
+             <NavItem icon={<Package size={18} />} label="Inventory" active={currentView === 'inventory'} onClick={() => setCurrentView('inventory')} />
           </div>
           
           <div className="pt-8 pb-2">
              <p className="px-3 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">System</p>
-             <NavItem icon={<Package size={18} />} label="Inventory" active={currentView === 'inventory'} onClick={() => setCurrentView('inventory')} />
              {isAdmin && (
                <NavItem icon={<Shield size={18} />} label="Users" active={currentView === 'users'} onClick={() => setCurrentView('users')} />
              )}
@@ -1096,7 +1108,6 @@ const App: React.FC = () => {
             onConfirm={handleMedicineSelectionConfirm}
             onClose={() => {
               setShowMedicineSelectionModal(false);
-              setPendingTreatment(null);
             }}
           />
         </Suspense>
