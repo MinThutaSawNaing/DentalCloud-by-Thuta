@@ -741,6 +741,7 @@ const App: React.FC = () => {
                 onClosePatient={handleClosePatient}
                 onOpenDirectory={() => setCurrentView('patients')}
                 onGenerateReceipt={handleGenerateReceipt}
+                onAddMedicines={handleAddMedicines}
             />}
           </Suspense>
         </div>
