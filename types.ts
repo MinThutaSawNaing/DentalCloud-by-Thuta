@@ -82,3 +82,29 @@ export interface User {
   created_at?: string;
   updated_at?: string;
 }
+
+export interface Medicine {
+  id: string;
+  name: string;
+  description?: string;
+  unit: string; // e.g., "pack", "bottle", "box"
+  price: number;
+  stock: number; // Current stock quantity
+  min_stock?: number; // Minimum stock level for alerts
+  category?: string; // e.g., "Pain Relief", "Antibiotics", "Supplements"
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface MedicineSale {
+  id: string;
+  patient_id: string;
+  patient_name?: string;
+  medicine_id: string;
+  medicine_name?: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  date: string;
+  treatment_id?: string; // Optional: link to treatment if sold with treatment
+}

@@ -13,7 +13,8 @@ import {
   Trash2,
   Settings,
   Shield,
-  LogOut
+  LogOut,
+  Package
 } from 'lucide-react';
 
 import { Modal, Input, NavItem } from './components/Shared';
@@ -25,7 +26,8 @@ import {
   PatientFile,
   Doctor,
   DoctorSchedule,
-  User
+  User,
+  Medicine
 } from './types';
 import { TREATMENT_CATEGORIES } from './constants';
 import { api } from './services/api';
@@ -45,8 +47,10 @@ const Receipt = React.lazy(() => import('./components/Receipt'));
 const TreatmentSelectionModal = React.lazy(() => import('./components/TreatmentSelectionModal'));
 const LoginView = React.lazy(() => import('./components/LoginView'));
 const UsersView = React.lazy(() => import('./components/UsersView'));
+const InventoryView = React.lazy(() => import('./components/InventoryView'));
+const MedicineSelectionModal = React.lazy(() => import('./components/MedicineSelectionModal'));
 
-type ViewState = 'dashboard' | 'patients' | 'appointments' | 'doctors' | 'finance' | 'treatments' | 'records' | 'settings' | 'users';
+type ViewState = 'dashboard' | 'patients' | 'appointments' | 'doctors' | 'finance' | 'treatments' | 'records' | 'settings' | 'users' | 'inventory';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
@@ -63,6 +67,7 @@ const App: React.FC = () => {
   const [treatmentTypes, setTreatmentTypes] = useState<TreatmentType[]>([]);
   const [patientFiles, setPatientFiles] = useState<PatientFile[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -73,6 +78,8 @@ const App: React.FC = () => {
   const [editingTreatmentType, setEditingTreatmentType] = useState<TreatmentType | null>(null);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
+  const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
+  const [pendingTreatment, setPendingTreatment] = useState<TreatmentType | null>(null);
   
   // -- Modals State --
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -83,6 +90,8 @@ const App: React.FC = () => {
   const [showReceipt, setShowReceipt] = useState(false);
   const [showTreatmentSelection, setShowTreatmentSelection] = useState(false);
   const [showUserModal, setShowUserModal] = useState(false);
+  const [showMedicineModal, setShowMedicineModal] = useState(false);
+  const [showMedicineSelectionModal, setShowMedicineSelectionModal] = useState(false);
   const [lastPaymentAmount, setLastPaymentAmount] = useState<number>(0);
   const [selectedTreatmentsForReceipt, setSelectedTreatmentsForReceipt] = useState<ClinicalRecord[]>([]);
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
@@ -97,6 +106,7 @@ const App: React.FC = () => {
   const [newDoctorData, setNewDoctorData] = useState<Partial<Doctor>>({ name: '', email: '', phone: '', specialization: '', schedules: [] });
   const [newUserData, setNewUserData] = useState<Partial<User>>({ username: '', password: '', role: 'normal' });
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [newMedicineData, setNewMedicineData] = useState<Partial<Medicine>>({ name: '', description: '', unit: 'pack', price: 0, stock: 0, min_stock: 0, category: '' });
 
   // Check authentication on mount
   useEffect(() => {
@@ -174,18 +184,20 @@ const App: React.FC = () => {
         // Don't show error to user, just log it
       });
       
-      const [patData, aptData, docData, typeData, recordsData] = await Promise.all([
+      const [patData, aptData, docData, typeData, recordsData, medData] = await Promise.all([
         api.patients.getAll(),
         api.appointments.getAll(),
         api.doctors.getAll(),
         api.treatments.getTypes(),
-        api.treatments.getAllRecords()
+        api.treatments.getAllRecords(),
+        api.medicines.getAll()
       ]);
       setPatients(patData);
       setAppointments(aptData);
       setDoctors(docData);
       setTreatmentTypes(typeData);
       setGlobalRecords(recordsData);
+      setMedicines(medData);
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Failed to connect to database. Please check your network.");
@@ -198,7 +210,19 @@ const App: React.FC = () => {
     if (currentView === 'users' && isAdmin) {
       fetchUsers();
     }
+    if (currentView === 'inventory') {
+      fetchMedicines();
+    }
   }, [currentView, isAdmin]);
+
+  const fetchMedicines = async () => {
+    try {
+      const medData = await api.medicines.getAll();
+      setMedicines(medData);
+    } catch (err: any) {
+      console.warn('Error fetching medicines:', err);
+    }
+  };
 
   const handlePatientSelect = async (patient: Patient) => {
     setSelectedPatient(patient);
@@ -400,6 +424,32 @@ const App: React.FC = () => {
     }
   };
 
+  const handleCreateMedicine = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (editingMedicine) {
+        await api.medicines.update(editingMedicine.id, newMedicineData);
+      } else {
+        await api.medicines.create(newMedicineData);
+      }
+      setShowMedicineModal(false);
+      setEditingMedicine(null);
+      setNewMedicineData({ name: '', description: '', unit: 'pack', price: 0, stock: 0, min_stock: 0, category: '' });
+      fetchMedicines();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteMedicine = async (id: string) => {
+    try {
+      await api.medicines.delete(id);
+      fetchMedicines();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
   const handleUpdateAppointmentStatus = async (id: string, status: 'Scheduled' | 'Completed' | 'Cancelled') => {
     try {
       await api.appointments.updateStatus(id, status);
@@ -439,31 +489,68 @@ const App: React.FC = () => {
 
   const handleTreatmentSubmit = async (treatment: TreatmentType) => {
     if (!selectedPatient) return;
+    // Store the treatment and show medicine selection modal
+    setPendingTreatment(treatment);
+    setShowMedicineSelectionModal(true);
+  };
+
+  const handleMedicineSelectionConfirm = async (selectedMedicines: { medicine: Medicine; quantity: number }[]) => {
+    if (!selectedPatient || !pendingTreatment) return;
+    
+    setShowMedicineSelectionModal(false);
+    
     const count = selectedTeeth.length || 1;
-    const totalCost = treatment.cost * count;
+    const treatmentCost = pendingTreatment.cost * count;
+    
+    // Calculate medicine cost
+    const medicineCost = selectedMedicines.reduce((sum, item) => sum + (item.medicine.price * item.quantity), 0);
+    const totalCost = treatmentCost + medicineCost;
     
     try {
-      const res = await api.treatments.record({
+      // Record treatment
+      const treatmentRes = await api.treatments.record({
         patient_id: selectedPatient.id,
         teeth: selectedTeeth,
-        description: treatment.name,
-        cost: totalCost
+        description: pendingTreatment.name,
+        cost: treatmentCost
       });
+
+      // Record medicine sales
+      let treatmentRecordId: string | undefined;
+      for (const item of selectedMedicines) {
+        const saleRes = await api.medicines.sell(
+          selectedPatient.id,
+          item.medicine.id,
+          item.quantity
+        );
+        // Use the first treatment record ID for linking (if needed)
+        if (!treatmentRecordId) {
+          treatmentRecordId = saleRes.sale.treatment_id;
+        }
+      }
+
+      // Update patient balance (medicines already updated it, but we need to account for treatment)
+      const finalBalance = treatmentRes.new_balance;
+      setSelectedPatient({ ...selectedPatient, balance: finalBalance });
       
-      setSelectedPatient({ ...selectedPatient, balance: res.new_balance });
-      
+      // Update treatment history
       const newRecord: ClinicalRecord = {
         id: Math.random().toString(), 
         patient_id: selectedPatient.id,
         teeth: selectedTeeth,
-        description: treatment.name,
+        description: pendingTreatment.name + (selectedMedicines.length > 0 ? ` + ${selectedMedicines.length} medicine(s)` : ''),
         cost: totalCost,
         date: new Date().toISOString().split('T')[0]
       };
       setTreatmentHistory([newRecord, ...treatmentHistory]);
       setSelectedTeeth([]);
+      setPendingTreatment(null);
+      
+      // Refresh medicines to update stock
+      await fetchMedicines();
     } catch (err: any) {
       alert(err.message);
+      setPendingTreatment(null);
     }
   };
 
@@ -580,6 +667,7 @@ const App: React.FC = () => {
           
           <div className="pt-8 pb-2">
              <p className="px-3 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">System</p>
+             <NavItem icon={<Package size={18} />} label="Inventory" active={currentView === 'inventory'} onClick={() => setCurrentView('inventory')} />
              {isAdmin && (
                <NavItem icon={<Shield size={18} />} label="Users" active={currentView === 'users'} onClick={() => setCurrentView('users')} />
              )}
@@ -623,6 +711,7 @@ const App: React.FC = () => {
             {currentView === 'doctors' && <DoctorsView doctors={doctors} loading={loading} onAdd={() => {setEditingDoctor(null); setNewDoctorData({ name: '', email: '', phone: '', specialization: '', schedules: [] }); setShowDoctorModal(true)}} onEdit={(doc) => {setEditingDoctor(doc); setNewDoctorData(doc); setShowDoctorModal(true)}} onDelete={handleDeleteDoctor} />}
             {currentView === 'treatments' && <TreatmentConfigView treatmentTypes={treatmentTypes} onAdd={() => {setEditingTreatmentType(null); setShowTreatmentTypeModal(true)}} onEdit={(t) => {setEditingTreatmentType(t); setNewTreatmentTypeData(t); setShowTreatmentTypeModal(true)}} onDelete={handleDeleteTreatmentType} />}
             {currentView === 'records' && <RecordsView records={globalRecords} loading={loading} onRefresh={fetchGlobalRecords} onDeleteAll={handleDeleteAllRecords} currency={currency} />}
+            {currentView === 'inventory' && <InventoryView medicines={medicines} loading={loading} onAdd={() => {setEditingMedicine(null); setNewMedicineData({ name: '', description: '', unit: 'pack', price: 0, stock: 0, min_stock: 0, category: '' }); setShowMedicineModal(true)}} onEdit={(med) => {setEditingMedicine(med); setNewMedicineData(med); setShowMedicineModal(true)}} onDelete={handleDeleteMedicine} />}
             {currentView === 'users' && isAdmin && <UsersView users={users} loading={loading} isAdmin={isAdmin} onAdd={() => {setEditingUser(null); setNewUserData({ username: '', password: '', role: 'normal' }); setShowUserModal(true)}} onEdit={(user) => {setEditingUser(user); setNewUserData({ username: user.username, password: '', role: user.role }); setShowUserModal(true)}} onDelete={handleDeleteUser} />}
             {currentView === 'settings' && <SettingsView currency={currency} onCurrencyChange={setCurrency} />}
             {currentView === 'finance' && <ClinicalView 
@@ -927,6 +1016,90 @@ const App: React.FC = () => {
             </button>
           </form>
         </Modal>
+      )}
+
+      {showMedicineModal && (
+        <Modal title={editingMedicine ? "Edit Medicine" : "New Medicine"} onClose={() => {setShowMedicineModal(false); setEditingMedicine(null); setNewMedicineData({ name: '', description: '', unit: 'pack', price: 0, stock: 0, min_stock: 0, category: '' });}}>
+          <form onSubmit={handleCreateMedicine} className="space-y-5">
+            <Input 
+              label="Medicine Name" 
+              required 
+              value={newMedicineData.name} 
+              onChange={(e: any) => setNewMedicineData({...newMedicineData, name: e.target.value})} 
+              placeholder="e.g., Pain Killer, Antibiotics"
+            />
+            <Input 
+              label="Description" 
+              value={newMedicineData.description || ''} 
+              onChange={(e: any) => setNewMedicineData({...newMedicineData, description: e.target.value})} 
+              placeholder="Optional description"
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">Unit</label>
+                <select 
+                  className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500"
+                  value={newMedicineData.unit} 
+                  onChange={(e: any) => setNewMedicineData({...newMedicineData, unit: e.target.value})}
+                >
+                  <option value="pack">Pack</option>
+                  <option value="bottle">Bottle</option>
+                  <option value="box">Box</option>
+                  <option value="unit">Unit</option>
+                  <option value="tablet">Tablet</option>
+                </select>
+              </div>
+              <Input 
+                label="Category" 
+                value={newMedicineData.category || ''} 
+                onChange={(e: any) => setNewMedicineData({...newMedicineData, category: e.target.value})} 
+                placeholder="e.g., Pain Relief"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <Input 
+                label="Price ($)" 
+                type="number" 
+                required 
+                min="0" 
+                step="0.01"
+                value={newMedicineData.price || 0} 
+                onChange={(e: any) => setNewMedicineData({...newMedicineData, price: parseFloat(e.target.value) || 0})} 
+              />
+              <Input 
+                label="Stock" 
+                type="number" 
+                required 
+                min="0"
+                value={newMedicineData.stock || 0} 
+                onChange={(e: any) => setNewMedicineData({...newMedicineData, stock: parseInt(e.target.value) || 0})} 
+              />
+              <Input 
+                label="Min Stock" 
+                type="number" 
+                min="0"
+                value={newMedicineData.min_stock || 0} 
+                onChange={(e: any) => setNewMedicineData({...newMedicineData, min_stock: parseInt(e.target.value) || 0})} 
+              />
+            </div>
+            <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-600/20">
+              {editingMedicine ? 'Update Medicine' : 'Create Medicine'}
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      {showMedicineSelectionModal && (
+        <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center"><Loader2 className="animate-spin text-white w-10 h-10" /></div>}>
+          <MedicineSelectionModal
+            medicines={medicines}
+            onConfirm={handleMedicineSelectionConfirm}
+            onClose={() => {
+              setShowMedicineSelectionModal(false);
+              setPendingTreatment(null);
+            }}
+          />
+        </Suspense>
       )}
 
       {showPaymentModal && (

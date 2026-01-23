@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Patient, Appointment, ClinicalRecord, TreatmentType, PatientFile, Doctor, DoctorSchedule, User } from '../types';
+import { Patient, Appointment, ClinicalRecord, TreatmentType, PatientFile, Doctor, DoctorSchedule, User, Medicine, MedicineSale } from '../types';
 
 // Utility: map DB snake_case fields to app camelCase
 const mapPatient = (row: any): Patient => ({
@@ -756,6 +756,234 @@ export const api = {
         .eq('id', id);
 
       if (error) throw new Error(error.message);
+    }
+  },
+
+  medicines: {
+    getAll: async (): Promise<Medicine[]> => {
+      try {
+        const { data, error } = await supabase
+          .from('medicines')
+          .select('*')
+          .order('name');
+        
+        if (error) throw error;
+        return (data || []).map((m: any) => ({
+          id: m.id,
+          name: m.name,
+          description: m.description,
+          unit: m.unit,
+          price: m.price,
+          stock: m.stock,
+          min_stock: m.min_stock,
+          category: m.category,
+          created_at: m.created_at,
+          updated_at: m.updated_at
+        }));
+      } catch (err) {
+        console.warn("Error fetching medicines:", err);
+        return [];
+      }
+    },
+    getById: async (id: string): Promise<Medicine | null> => {
+      try {
+        const { data, error } = await supabase
+          .from('medicines')
+          .select('*')
+          .eq('id', id)
+          .single();
+        
+        if (error) throw error;
+        if (!data) return null;
+        
+        return {
+          id: data.id,
+          name: data.name,
+          description: data.description,
+          unit: data.unit,
+          price: data.price,
+          stock: data.stock,
+          min_stock: data.min_stock,
+          category: data.category,
+          created_at: data.created_at,
+          updated_at: data.updated_at
+        };
+      } catch (err) {
+        console.warn("Error fetching medicine:", err);
+        return null;
+      }
+    },
+    create: async (data: Partial<Medicine>): Promise<Medicine> => {
+      const payload = {
+        name: data.name,
+        description: data.description || null,
+        unit: data.unit || 'pack',
+        price: data.price || 0,
+        stock: data.stock || 0,
+        min_stock: data.min_stock || 0,
+        category: data.category || null
+      };
+
+      const { data: result, error } = await supabase
+        .from('medicines')
+        .insert(payload)
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return {
+        id: result.id,
+        name: result.name,
+        description: result.description,
+        unit: result.unit,
+        price: result.price,
+        stock: result.stock,
+        min_stock: result.min_stock,
+        category: result.category,
+        created_at: result.created_at,
+        updated_at: result.updated_at
+      };
+    },
+    update: async (id: string, data: Partial<Medicine>): Promise<Medicine> => {
+      const payload: any = {};
+      
+      if (data.name !== undefined) payload.name = data.name;
+      if (data.description !== undefined) payload.description = data.description;
+      if (data.unit !== undefined) payload.unit = data.unit;
+      if (data.price !== undefined) payload.price = data.price;
+      if (data.stock !== undefined) payload.stock = data.stock;
+      if (data.min_stock !== undefined) payload.min_stock = data.min_stock;
+      if (data.category !== undefined) payload.category = data.category;
+      
+      payload.updated_at = new Date().toISOString();
+
+      const { data: result, error } = await supabase
+        .from('medicines')
+        .update(payload)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return {
+        id: result.id,
+        name: result.name,
+        description: result.description,
+        unit: result.unit,
+        price: result.price,
+        stock: result.stock,
+        min_stock: result.min_stock,
+        category: result.category,
+        created_at: result.created_at,
+        updated_at: result.updated_at
+      };
+    },
+    delete: async (id: string): Promise<void> => {
+      const { error } = await supabase
+        .from('medicines')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw new Error(error.message);
+    },
+    sell: async (patientId: string, medicineId: string, quantity: number, treatmentId?: string): Promise<{ sale: MedicineSale; new_stock: number }> => {
+      // Get medicine details
+      const medicine = await api.medicines.getById(medicineId);
+      if (!medicine) {
+        throw new Error('Medicine not found');
+      }
+
+      if (medicine.stock < quantity) {
+        throw new Error(`Insufficient stock. Available: ${medicine.stock} ${medicine.unit}`);
+      }
+
+      const totalPrice = medicine.price * quantity;
+      const newStock = medicine.stock - quantity;
+
+      // Create sale record
+      const saleData = {
+        patient_id: patientId,
+        medicine_id: medicineId,
+        quantity: quantity,
+        unit_price: medicine.price,
+        total_price: totalPrice,
+        date: new Date().toISOString().split('T')[0],
+        treatment_id: treatmentId || null
+      };
+
+      const { data: saleResult, error: saleError } = await supabase
+        .from('medicine_sales')
+        .insert(saleData)
+        .select('*, patients(name), medicines(name)')
+        .single();
+
+      if (saleError) throw new Error(saleError.message);
+
+      // Update stock
+      await api.medicines.update(medicineId, { stock: newStock });
+
+      // Update patient balance
+      const { data: patient } = await supabase
+        .from('patients')
+        .select('balance')
+        .eq('id', patientId)
+        .single();
+
+      if (patient) {
+        const newBalance = (patient.balance || 0) + totalPrice;
+        await supabase
+          .from('patients')
+          .update({ balance: newBalance })
+          .eq('id', patientId);
+      }
+
+      return {
+        sale: {
+          id: saleResult.id,
+          patient_id: saleResult.patient_id,
+          patient_name: saleResult.patients?.name || 'Unknown',
+          medicine_id: saleResult.medicine_id,
+          medicine_name: saleResult.medicines?.name || 'Unknown',
+          quantity: saleResult.quantity,
+          unit_price: saleResult.unit_price,
+          total_price: saleResult.total_price,
+          date: saleResult.date,
+          treatment_id: saleResult.treatment_id
+        },
+        new_stock: newStock
+      };
+    },
+    getSales: async (patientId?: string): Promise<MedicineSale[]> => {
+      try {
+        let query = supabase
+          .from('medicine_sales')
+          .select('*, patients(name), medicines(name)')
+          .order('date', { ascending: false });
+
+        if (patientId) {
+          query = query.eq('patient_id', patientId);
+        }
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+
+        return (data || []).map((sale: any) => ({
+          id: sale.id,
+          patient_id: sale.patient_id,
+          patient_name: sale.patients?.name || 'Unknown',
+          medicine_id: sale.medicine_id,
+          medicine_name: sale.medicines?.name || 'Unknown',
+          quantity: sale.quantity,
+          unit_price: sale.unit_price,
+          total_price: sale.total_price,
+          date: sale.date,
+          treatment_id: sale.treatment_id
+        }));
+      } catch (err) {
+        console.warn("Error fetching medicine sales:", err);
+        return [];
+      }
     }
   }
 };
