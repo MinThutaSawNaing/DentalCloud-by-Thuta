@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import { DollarSign, Activity, Users, Calendar as CalendarIcon } from 'lucide-react';
-import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+import { DollarSign, Activity, Users, Calendar as CalendarIcon, PieChart as PieIcon } from 'lucide-react';
+import { ResponsiveContainer, AreaChart, Area, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts';
 import { StatsCard } from './Shared';
 import { Patient, Appointment, ClinicalRecord } from '../types';
 import { formatCurrency, Currency } from '../utils/currency';
@@ -137,6 +137,75 @@ const DashboardView: React.FC<DashboardViewProps> = ({ patients, appointments, t
     return change >= 0 ? `+${change.toFixed(1)}%` : `${change.toFixed(1)}%`;
   }, [monthlyRevenue, treatmentRecords]);
 
+  // Appointment Status Distribution (today)
+  const appointmentStatusData = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todaysAppointments = appointments.filter(a => a.date === todayStr);
+    const statusCounts: Record<string, number> = { Scheduled: 0, Completed: 0, Cancelled: 0 };
+
+    todaysAppointments.forEach(apt => {
+      statusCounts[apt.status] = (statusCounts[apt.status] || 0) + 1;
+    });
+
+    return Object.entries(statusCounts)
+      .filter(([, value]) => value > 0)
+      .map(([name, value]) => ({ name, value }));
+  }, [appointments]);
+
+  const appointmentStatusColors: Record<string, string> = {
+    Scheduled: '#4F46E5',
+    Completed: '#10B981',
+    Cancelled: '#EF4444'
+  };
+
+  // Treatment Mix (top 8 procedures by count, last 30 days)
+  const treatmentMixData = useMemo(() => {
+    const today = new Date();
+    const cutoff = new Date();
+    cutoff.setDate(today.getDate() - 29);
+    const cutoffStr = cutoff.toISOString().split('T')[0];
+
+    const map = new Map<string, number>();
+
+    treatmentRecords
+      .filter(rec => rec.date >= cutoffStr)
+      .forEach(rec => {
+        const key = rec.description || 'Unknown';
+        map.set(key, (map.get(key) || 0) + 1);
+      });
+
+    return Array.from(map.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([name, count]) => ({
+        name: name.length > 18 ? name.substring(0, 18) + '...' : name,
+        count
+      }));
+  }, [treatmentRecords]);
+
+  // New Patients by Month (last 6 months)
+  const newPatientsMonthlyData = useMemo(() => {
+    const now = new Date();
+    const data: { name: string; count: number }[] = [];
+
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleDateString('en-US', { month: 'short' });
+
+      const count = patients.filter(p => {
+        if (!p.created_at) return false;
+        const created = new Date(p.created_at);
+        const key = `${created.getFullYear()}-${String(created.getMonth() + 1).padStart(2, '0')}`;
+        return key === monthKey;
+      }).length;
+
+      data.push({ name: label, count });
+    }
+
+    return data;
+  }, [patients]);
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -224,6 +293,103 @@ const DashboardView: React.FC<DashboardViewProps> = ({ patients, appointments, t
               </BarChart>
             </ResponsiveContainer>
           </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-800">Today's Appointment Status</h3>
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500">
+              <PieIcon className="w-3 h-3" /> Distribution
+            </span>
+          </div>
+          <div className="h-[260px] w-full min-h-[260px] flex items-center justify-center">
+            {appointmentStatusData.length === 0 ? (
+              <p className="text-sm text-gray-400 italic">No appointments scheduled today.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={appointmentStatusData}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={60}
+                    outerRadius={90}
+                    paddingAngle={4}
+                  >
+                    {appointmentStatusData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={appointmentStatusColors[entry.name] || '#4B5563'}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number, name: string) => [`${value} appointments`, name]}
+                  />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">Treatment Mix (Last 30 Days)</h3>
+          <p className="text-xs text-gray-500 mb-4">Top procedures by frequency</p>
+          <div className="h-[260px] w-full min-h-[260px]">
+            {treatmentMixData.length === 0 ? (
+              <p className="text-sm text-gray-400 italic">No treatment activity recorded in the last 30 days.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={treatmentMixData} layout="vertical" margin={{ left: 80 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E5E7EB" />
+                  <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: '#6B7280', fontSize: 11 }}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => [`${value} procedures`, 'Count']}
+                  />
+                  <Bar dataKey="count" fill="#6366F1" radius={[0, 8, 8, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+        <h3 className="text-lg font-semibold text-gray-800 mb-2">New Patients (Last 6 Months)</h3>
+        <p className="text-xs text-gray-500 mb-4">Monthly intake trend</p>
+        <div className="h-[260px] w-full min-h-[260px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={newPatientsMonthlyData}>
+              <defs>
+                <linearGradient id="colorPatients" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10B981" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} dy={10} />
+              <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} />
+              <Tooltip formatter={(value: number) => [`${value} patients`, 'New Patients']} />
+              <Area
+                type="monotone"
+                dataKey="count"
+                stroke="#10B981"
+                strokeWidth={3}
+                fillOpacity={1}
+                fill="url(#colorPatients)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </div>
