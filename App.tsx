@@ -671,7 +671,7 @@ const App: React.FC = () => {
           <div className="bg-indigo-500 p-2.5 rounded-2xl shadow-lg shadow-indigo-500/20">
             <Activity className="text-white w-6 h-6" />
           </div>
-          <span className="text-xl font-black text-white tracking-tight">DentFlow<span className="text-indigo-400">Pro</span></span>
+          <span className="text-xl font-black text-white tracking-tight">DentalCloud<span className="text-indigo-400">Pro</span></span>
         </div>
         
         <nav className="mt-8 px-6 space-y-2 flex-1 min-h-0 overflow-y-auto overscroll-contain pb-4">
