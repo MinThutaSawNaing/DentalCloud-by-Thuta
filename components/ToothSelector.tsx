@@ -24,25 +24,26 @@ const isoToUniversal = (n: number): number => {
 };
 
 export const ToothSelector: React.FC<SelectorProps> = ({ selectedTeeth, onToggleTooth }) => {
-  // Convert array of universal tooth numbers to ISO object map format required by react-teeth-selector
+  // Convert array of universal tooth numbers to ISO object map format with 'tooth-' prefix
+  // required by react-teeth-selector library internal key matching
   const selectedTeethMap = useMemo(() => {
-    const map: { [key: number]: boolean } = {};
+    const map: { [key: string]: boolean } = {};
     selectedTeeth.forEach(toothId => {
       const isoId = universalToISO(toothId);
-      map[isoId] = true;
+      map[`tooth-${isoId}`] = true;
     });
     return map;
   }, [selectedTeeth]);
 
   // Handle tooth click/toggle from react-teeth-selector
   const handleTeethChange = (newMap: any, info: any) => {
-    // The library may pass the ID in different properties depending on version or event source
-    // Common patterns: info.id, info.target.id, or info being the ID itself
-    const rawId = info?.id || info?.target?.id || (typeof info !== 'object' ? info : null);
+    // The library passes the tooth number (e.g. "11") in info.number
+    const rawId = info?.number || info?.id || info;
     
     if (rawId != null) {
-      // Remove any non-numeric characters (like "tooth-") and parse
-      const isoId = parseInt(rawId.toString().replace(/\D/g, ''), 10);
+      // Remove any non-numeric characters and parse
+      const cleanId = rawId.toString().replace(/\D/g, '');
+      const isoId = parseInt(cleanId, 10);
       
       if (!isNaN(isoId)) {
         // Convert ISO back to Universal before calling the toggle callback
