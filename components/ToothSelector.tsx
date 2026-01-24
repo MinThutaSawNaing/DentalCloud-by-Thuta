@@ -1,60 +1,5 @@
-import React from 'react';
-
-interface ToothShapeProps {
-  isUpper: boolean;
-  index: number;
-  isSelected: boolean;
-  onClick: () => void;
-}
-
-// Simplified geometric representation of teeth for the SVG
-const ToothShape: React.FC<ToothShapeProps> = ({ isUpper, index, isSelected, onClick }) => {
-  // Logic to determine width/shape based on tooth type (Molar vs Incisor)
-  // Indices 1, 16, 17, 32 are Wisdom/Molars (Wider)
-  // Indices 8, 9, 24, 25 are Central Incisors (Medium)
-  
-  const isMolar = [1, 2, 3, 14, 15, 16, 17, 18, 19, 30, 31, 32].includes(index);
-  const width = isMolar ? 36 : 28;
-  const height = 40;
-  
-  // Dynamic coloring
-  const fillClass = isSelected 
-    ? "fill-blue-500 stroke-blue-600" 
-    : "fill-white hover:fill-blue-50 stroke-gray-300";
-
-  return (
-    <div 
-      onClick={onClick}
-      className={`relative cursor-pointer transition-all duration-200 transform hover:scale-105 group flex flex-col items-center gap-1`}
-    >
-      <span className="text-[10px] text-gray-400 font-mono mb-0.5 select-none">{index}</span>
-      <svg 
-        width={width} 
-        height={height} 
-        viewBox={`0 0 ${width} ${height}`} 
-        className={`transition-colors duration-200 ${isSelected ? 'drop-shadow-md' : ''}`}
-      >
-        {/* Simple path representing a tooth crown */}
-        <path 
-          d={
-            isUpper 
-            ? `M2,${height} L${width-2},${height} L${width},10 Q${width/2},-5 0,10 Z` // Upper Tooth Shape
-            : `M2,0 L${width-2},0 L${width},${height-10} Q${width/2},${height+5} 0,${height-10} Z` // Lower Tooth Shape
-          }
-          className={`${fillClass} stroke-2`}
-        />
-        {/* Root indication lines (Visual only) */}
-        {!isSelected && (
-          <path 
-             d={isUpper ? `M${width/2},10 L${width/2},25` : `M${width/2},${height-10} L${width/2},${height-25}`}
-             className="stroke-gray-100" 
-             fill="none"
-          />
-        )}
-      </svg>
-    </div>
-  );
-};
+import React, { useMemo } from 'react';
+import { TeethDiagram } from 'react-teeth-selector';
 
 interface SelectorProps {
   selectedTeeth: number[];
@@ -62,50 +7,59 @@ interface SelectorProps {
 }
 
 export const ToothSelector: React.FC<SelectorProps> = ({ selectedTeeth, onToggleTooth }) => {
-  // Adult Permanent Teeth: 1-16 (Upper), 17-32 (Lower)
-  // 1-16 (Right to Left from Dentist View -> actually Top Right 1 to Top Left 16)
-  // For UI, we usually display 1-16 in a row, 32-17 in a row below it.
-  
-  const upperTeeth = Array.from({ length: 16 }, (_, i) => i + 1);
-  const lowerTeeth = Array.from({ length: 16 }, (_, i) => 32 - i); // 32 down to 17
+  // Convert array of tooth numbers to object map format required by react-teeth-selector
+  const selectedTeethMap = useMemo(() => {
+    const map: { [key: number]: boolean } = {};
+    selectedTeeth.forEach(toothId => {
+      map[toothId] = true;
+    });
+    return map;
+  }, [selectedTeeth]);
+
+  // Handle tooth click/toggle from react-teeth-selector
+  const handleTeethChange = (newMap: { [key: number]: boolean }, info: { id: number }) => {
+    // Toggle the tooth that was clicked
+    onToggleTooth(info.id);
+  };
 
   return (
-    <div className="flex flex-col items-center gap-12 p-4 select-none">
+    <div className="flex flex-col items-center gap-4 sm:gap-6 p-3 sm:p-4 lg:p-6 bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50 rounded-2xl border border-slate-200/60 shadow-xl shadow-slate-200/40 select-none w-full max-w-full mx-auto backdrop-blur-sm">
       
-      {/* Upper Arch */}
-      <div className="relative">
-        <h4 className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs uppercase tracking-widest text-gray-400">Maxillary (Upper)</h4>
-        <div className="flex gap-1 justify-center items-end" style={{ transform: 'perspective(500px) rotateX(10deg)' }}>
-          {upperTeeth.map((id) => (
-            <ToothShape 
-              key={id} 
-              index={id} 
-              isUpper={true} 
-              isSelected={selectedTeeth.includes(id)}
-              onClick={() => onToggleTooth(id)}
-            />
-          ))}
+      {/* Diagram Title */}
+      <div className="text-center mb-2 sm:mb-3">
+        <h3 className="text-xs sm:text-sm font-bold text-slate-700 uppercase tracking-[0.25em] sm:tracking-[0.3em] mb-1 flex items-center justify-center gap-2">
+          <svg className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Odontogram - Universal Numbering System
+        </h3>
+        <p className="text-[10px] sm:text-xs text-slate-500 font-medium">Click or tap to select/deselect teeth</p>
+      </div>
+
+      {/* React Teeth Selector Component */}
+      <div className="w-full flex justify-center overflow-hidden">
+        <TeethDiagram 
+          selectedTeeth={selectedTeethMap}
+          onChange={handleTeethChange}
+          width="100%"
+          height="auto"
+        />
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-6 pt-4 border-t border-slate-200/60">
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 border-2 border-blue-300 shadow-md shadow-blue-500/30"></div>
+          <span className="text-[10px] sm:text-xs text-slate-700 font-semibold">Selected</span>
         </div>
-      </div>
-
-      {/* Divider */}
-      <div className="w-full h-px bg-gray-100 relative">
-        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-2 text-xs text-gray-300">Lingual</span>
-      </div>
-
-      {/* Lower Arch */}
-      <div className="relative">
-         <h4 className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs uppercase tracking-widest text-gray-400">Mandibular (Lower)</h4>
-        <div className="flex gap-1 justify-center items-start" style={{ transform: 'perspective(500px) rotateX(-10deg)' }}>
-          {lowerTeeth.map((id) => (
-            <ToothShape 
-              key={id} 
-              index={id} 
-              isUpper={false} 
-              isSelected={selectedTeeth.includes(id)}
-              onClick={() => onToggleTooth(id)}
-            />
-          ))}
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 border-2 border-slate-300 shadow-sm"></div>
+          <span className="text-[10px] sm:text-xs text-slate-700 font-semibold">Unselected</span>
+        </div>
+        <div className="px-3 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-full border border-blue-200/60">
+          <span className="text-[10px] sm:text-xs text-blue-700 font-bold">
+            {selectedTeeth.length} tooth{selectedTeeth.length !== 1 ? 's' : ''} selected
+          </span>
         </div>
       </div>
 

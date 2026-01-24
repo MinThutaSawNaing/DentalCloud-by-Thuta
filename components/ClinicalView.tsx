@@ -85,7 +85,7 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
           </div>
         </div>
         
-        <div className="flex justify-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+        <div className="flex justify-center w-full overflow-hidden">
           <ToothSelector 
             selectedTeeth={selectedTeeth} 
             onToggleTooth={onToggleTooth} 
