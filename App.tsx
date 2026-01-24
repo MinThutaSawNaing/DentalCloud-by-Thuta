@@ -98,6 +98,8 @@ const App: React.FC = () => {
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
   const [loadingAvailableTimes, setLoadingAvailableTimes] = useState(false);
   const [currency, setCurrency] = useState<'USD' | 'MMK'>('USD');
+  const [sidebarWidth, setSidebarWidth] = useState(256);
+  const [isResizing, setIsResizing] = useState(false);
   
   // -- Form State --
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
@@ -163,6 +165,34 @@ const App: React.FC = () => {
     setCurrentUser('');
     setCurrentView('dashboard');
   };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsResizing(true);
+    e.preventDefault();
+  };
+
+  const handleMouseMove = React.useCallback((e: MouseEvent) => {
+    if (!isResizing) return;
+    const newWidth = e.clientX;
+    if (newWidth >= 200 && newWidth <= 400) {
+      setSidebarWidth(newWidth);
+    }
+  }, [isResizing]);
+
+  const handleMouseUp = React.useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  useEffect(() => {
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isResizing, handleMouseMove, handleMouseUp]);
 
   const fetchUsers = async () => {
     if (!isAdmin) return;
@@ -666,9 +696,12 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex bg-gray-50">
       {/* Sidebar Navigation */}
-      <aside className="w-64 bg-gray-900 fixed inset-y-0 left-0 h-screen z-20 hidden md:flex border-r border-gray-800 flex-col overflow-hidden">
-        <div className="p-8 flex items-center gap-3 flex-shrink-0">
-          <span className="text-xl font-black text-white tracking-tight">DentalCloud<span className="text-indigo-400">Pro</span></span>
+      <aside 
+        style={{ width: `${sidebarWidth}px` }}
+        className="bg-gray-900 fixed inset-y-0 left-0 h-screen z-20 hidden md:flex border-r border-gray-800 flex-col overflow-hidden"
+      >
+        <div className="p-8 flex items-center justify-center flex-shrink-0">
+          <span className="text-xl font-black text-white tracking-tight text-center">DentalCloud<span className="text-indigo-400">Pro</span></span>
         </div>
         
         <nav className="mt-8 px-6 space-y-2 flex-1 min-h-0 overflow-y-auto overscroll-contain pb-4">
@@ -719,9 +752,21 @@ const App: React.FC = () => {
               </button>
            </div>
         </div>
+        
+        {/* Resize Handle */}
+        <div
+          onMouseDown={handleMouseDown}
+          className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-indigo-500 transition-colors z-30"
+          style={{ 
+            backgroundColor: isResizing ? '#6366f1' : 'transparent'
+          }}
+        />
       </aside>
 
-      <main className="flex-1 md:ml-64 p-6 md:p-10">
+      <main 
+        style={{ marginLeft: `${sidebarWidth}px` }}
+        className="flex-1 p-6 md:p-10"
+      >
         <div className="max-w-6xl mx-auto">
           <Suspense fallback={<div className="flex justify-center p-20"><Loader2 className="animate-spin text-indigo-600 w-10 h-10" /></div>}>
             {currentView === 'dashboard' && <DashboardView patients={patients} appointments={appointments} treatmentRecords={globalRecords} currency={currency} />}
