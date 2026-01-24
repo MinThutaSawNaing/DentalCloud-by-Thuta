@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, X, Upload, Trash2, FileText, Receipt as ReceiptIcon, Package } from 'lucide-react';
+import { User, X, Upload, Trash2, FileText, Receipt as ReceiptIcon, Package, RotateCcw } from 'lucide-react';
 import { ToothSelector } from './ToothSelector';
 import { Patient, TreatmentType, ClinicalRecord, PatientFile } from '../types';
 import { formatCurrency, getCurrencySymbol, Currency } from '../utils/currency';
@@ -23,6 +23,7 @@ interface ClinicalViewProps {
   onGenerateReceipt: () => void;
   onAddMedicines?: () => void;
   onToggleFlatRate: (value: boolean) => void;
+  onUndoTreatment?: (record: ClinicalRecord) => void;
 }
 
 const ClinicalView: React.FC<ClinicalViewProps> = ({
@@ -43,7 +44,8 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
   onDeleteFile,
   onGenerateReceipt,
   onAddMedicines,
-  onToggleFlatRate
+  onToggleFlatRate,
+  onUndoTreatment
 }) => {
   const currencySymbol = getCurrencySymbol(currency);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -154,11 +156,12 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
                   <th className="px-4 py-3">Anatomy (Teeth)</th>
                   <th className="px-4 py-3">Service Provided</th>
                   <th className="px-4 py-3 text-right">Fee</th>
+                  <th className="px-4 py-3 text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {treatmentHistory.length === 0 ? (
-                  <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400 italic">No clinical history recorded for this patient.</td></tr>
+                  <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400 italic">No clinical history recorded for this patient.</td></tr>
                 ) : (
                   treatmentHistory.map((rec) => (
                     <tr key={rec.id} className="hover:bg-gray-50 transition-colors">
@@ -168,6 +171,17 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
                       </td>
                       <td className="px-4 py-3 font-medium text-gray-800">{rec.description}</td>
                       <td className="px-4 py-3 text-right font-bold text-gray-900">{formatCurrency(rec.cost || 0, currency)}</td>
+                      <td className="px-4 py-3 text-center">
+                        {onUndoTreatment && (
+                          <button 
+                            onClick={() => onUndoTreatment(rec)}
+                            className="text-gray-400 hover:text-red-600 transition-colors p-1"
+                            title="Undo/Delete Record"
+                          >
+                            <RotateCcw size={14} />
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))
                 )}

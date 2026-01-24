@@ -251,9 +251,11 @@ export const api = {
         date: new Date().toISOString().split('T')[0]
       };
       
-      const { error: insertError } = await supabase
+      const { data: result, error: insertError } = await supabase
         .from('treatments')
-        .insert(treatmentData);
+        .insert(treatmentData)
+        .select()
+        .single();
       
       if (insertError) throw new Error(insertError.message);
 
@@ -276,6 +278,36 @@ export const api = {
 
       if (updateError) throw new Error(updateError.message);
       
+      return { status: "success", new_balance: newBalance, record: result };
+    },
+    undoRecord: async (recordId: string, patientId: string, cost: number) => {
+      // 1. Delete the record
+      const { error: deleteError } = await supabase
+        .from('treatments')
+        .delete()
+        .eq('id', recordId);
+      
+      if (deleteError) throw new Error(deleteError.message);
+
+      // 2. Fetch current balance
+      const { data: patient, error: fetchError } = await supabase
+        .from('patients')
+        .select('balance')
+        .eq('id', patientId)
+        .single();
+
+      if (fetchError) throw new Error(fetchError.message);
+
+      // 3. Deduct the cost (revert balance)
+      const newBalance = Math.max(0, (patient?.balance || 0) - cost);
+
+      const { error: updateError } = await supabase
+        .from('patients')
+        .update({ balance: newBalance })
+        .eq('id', patientId);
+
+      if (updateError) throw new Error(updateError.message);
+
       return { status: "success", new_balance: newBalance };
     }
   },

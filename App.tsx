@@ -505,17 +505,22 @@ const App: React.FC = () => {
       
       setSelectedPatient({ ...selectedPatient, balance: res.new_balance });
       
-      const newRecord: ClinicalRecord = {
-        id: Math.random().toString(), 
-        patient_id: selectedPatient.id,
-        teeth: selectedTeeth,
-        description: treatment.name,
-        cost: totalCost,
-        date: new Date().toISOString().split('T')[0]
-      };
-      setTreatmentHistory([newRecord, ...treatmentHistory]);
+      setTreatmentHistory([res.record, ...treatmentHistory]);
       setSelectedTeeth([]);
       setUseFlatRate(false); // Reset flat rate after treatment
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleUndoTreatment = async (record: ClinicalRecord) => {
+    if (!selectedPatient) return;
+    
+    try {
+      const res = await api.treatments.undoRecord(record.id, selectedPatient.id, record.cost);
+      
+      setSelectedPatient({ ...selectedPatient, balance: res.new_balance });
+      setTreatmentHistory(treatmentHistory.filter(t => t.id !== record.id));
     } catch (err: any) {
       alert(err.message);
     }
@@ -750,6 +755,7 @@ const App: React.FC = () => {
                 onGenerateReceipt={handleGenerateReceipt}
                 onAddMedicines={handleAddMedicines}
                 onToggleFlatRate={setUseFlatRate}
+                onUndoTreatment={handleUndoTreatment}
             />}
           </Suspense>
         </div>
