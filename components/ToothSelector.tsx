@@ -6,30 +6,51 @@ interface SelectorProps {
   onToggleTooth: (id: number) => void;
 }
 
+// Mapping between Universal (1-32) and ISO (11-48) numbering systems
+const universalToISO = (n: number): number => {
+  if (n >= 1 && n <= 8) return 19 - n;
+  if (n >= 9 && n <= 16) return n + 12;
+  if (n >= 17 && n <= 24) return 55 - n;
+  if (n >= 25 && n <= 32) return n + 16;
+  return n;
+};
+
+const isoToUniversal = (n: number): number => {
+  if (n >= 11 && n <= 18) return 19 - n;
+  if (n >= 21 && n <= 28) return n - 12;
+  if (n >= 31 && n <= 38) return 55 - n;
+  if (n >= 41 && n <= 48) return n - 16;
+  return n;
+};
+
 export const ToothSelector: React.FC<SelectorProps> = ({ selectedTeeth, onToggleTooth }) => {
-  // Convert array of tooth numbers to object map format required by react-teeth-selector
+  // Convert array of universal tooth numbers to ISO object map format required by react-teeth-selector
   const selectedTeethMap = useMemo(() => {
     const map: { [key: number]: boolean } = {};
     selectedTeeth.forEach(toothId => {
-      map[toothId] = true;
+      const isoId = universalToISO(toothId);
+      map[isoId] = true;
     });
     return map;
   }, [selectedTeeth]);
 
   // Handle tooth click/toggle from react-teeth-selector
-  const handleTeethChange = (newMap: { [key: number]: boolean }, info: any) => {
-    // The library might pass the ID in different ways depending on version
-    // Let's try to get it from info.id or info
-    const id = info?.id !== undefined ? info.id : info;
-    const toothId = typeof id === 'string' ? parseInt(id, 10) : id;
+  const handleTeethChange = (newMap: any, info: any) => {
+    // Extract ISO ID from info or fallback to arguments
+    const id = info?.id !== undefined ? info.id : (typeof info !== 'object' ? info : null);
     
-    if (toothId && !isNaN(toothId)) {
-      onToggleTooth(toothId);
+    if (id != null) {
+      const isoId = parseInt(id.toString(), 10);
+      if (!isNaN(isoId)) {
+        // Convert ISO back to Universal before calling the toggle callback
+        const universalId = isoToUniversal(isoId);
+        onToggleTooth(universalId);
+      }
     }
   };
 
   return (
-    <div className="flex flex-col items-center gap-3 p-3 bg-gradient-to-br from-slate-50 to-white rounded-xl border border-slate-200 shadow-sm select-none w-full max-w-full mx-auto backdrop-blur-sm overflow-hidden">
+    <div className="flex flex-col items-center gap-3 p-3 bg-gradient-to-br from-slate-50 to-white rounded-xl border border-slate-200 shadow-sm w-full max-w-full mx-auto backdrop-blur-sm overflow-hidden">
       
       {/* Diagram Title */}
       <div className="text-center mb-1">
@@ -39,17 +60,19 @@ export const ToothSelector: React.FC<SelectorProps> = ({ selectedTeeth, onToggle
           </svg>
           Clinical Odontogram
         </h3>
-        <p className="text-[10px] text-slate-500">Multi-select enabled</p>
+        <p className="text-[10px] text-slate-500">Universal Numbering System</p>
       </div>
 
-      {/* React Teeth Selector Component - Removed scale to fix click targets and adjusted width */}
+      {/* React Teeth Selector Component */}
       <div className="w-full flex justify-center py-1">
-        <div className="w-full max-w-[450px]">
+        <div className="w-full max-w-[400px]">
           <TeethDiagram 
             selectedTeeth={selectedTeethMap}
             onChange={handleTeethChange}
             width="100%"
             height="auto"
+            selectedColor="#3B82F6"
+            hoverColor="#93C5FD"
           />
         </div>
       </div>
