@@ -97,7 +97,15 @@ const App: React.FC = () => {
   const [selectedTreatmentsForReceipt, setSelectedTreatmentsForReceipt] = useState<ClinicalRecord[]>([]);
   const [availableTimes, setAvailableTimes] = useState<string[]>([]);
   const [loadingAvailableTimes, setLoadingAvailableTimes] = useState(false);
-  const [currency, setCurrency] = useState<'USD' | 'MMK'>('USD');
+  const [currency, setCurrency] = useState<'USD' | 'MMK'>(() => {
+    const savedCurrency = localStorage.getItem('currency');
+    return (savedCurrency === 'USD' || savedCurrency === 'MMK') ? savedCurrency : 'USD';
+  });
+  
+  const handleCurrencyChange = (newCurrency: 'USD' | 'MMK') => {
+    setCurrency(newCurrency);
+    localStorage.setItem('currency', newCurrency);
+  };
   const [sidebarWidth, setSidebarWidth] = useState(256);
   const [isResizing, setIsResizing] = useState(false);
   
@@ -777,7 +785,7 @@ const App: React.FC = () => {
             {currentView === 'records' && <RecordsView records={globalRecords} loading={loading} onRefresh={fetchGlobalRecords} onDeleteAll={handleDeleteAllRecords} currency={currency} />}
             {currentView === 'inventory' && <InventoryView medicines={medicines} loading={loading} currency={currency} onAdd={() => {setEditingMedicine(null); setNewMedicineData({ name: '', description: '', unit: 'pack', price: 0, stock: 0, min_stock: 0, category: '' }); setShowMedicineModal(true)}} onEdit={(med) => {setEditingMedicine(med); setNewMedicineData(med); setShowMedicineModal(true)}} onDelete={handleDeleteMedicine} />}
             {currentView === 'users' && isAdmin && <UsersView users={users} loading={loading} isAdmin={isAdmin} onAdd={() => {setEditingUser(null); setNewUserData({ username: '', password: '', role: 'normal' }); setShowUserModal(true)}} onEdit={(user) => {setEditingUser(user); setNewUserData({ username: user.username, password: '', role: user.role }); setShowUserModal(true)}} onDelete={handleDeleteUser} />}
-            {currentView === 'settings' && <SettingsView currency={currency} onCurrencyChange={setCurrency} />}
+            {currentView === 'settings' && <SettingsView currency={currency} onCurrencyChange={handleCurrencyChange} />}
             {currentView === 'finance' && <ClinicalView 
                 selectedPatient={selectedPatient} 
                 selectedTeeth={selectedTeeth} 
