@@ -75,9 +75,9 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
   };
 
   return (
-  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
-    <div className="lg:col-span-2 space-y-6">
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+  <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 md:gap-6 animate-fade-in overflow-hidden max-w-full">
+    <div className="xl:col-span-2 space-y-4 md:space-y-6 min-w-0 overflow-hidden">
+      <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 className="text-xl font-bold text-gray-800">Odontogram Interface</h2>
