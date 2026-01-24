@@ -3,12 +3,16 @@ import { X } from 'lucide-react';
 
 export const Modal = ({ title, children, onClose }: { title: string, children?: React.ReactNode, onClose: () => void }) => (
   <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-md z-50 flex items-center justify-center p-6 animate-fade-in">
-    <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full p-10 relative animate-scale-up">
-      <button onClick={onClose} className="absolute top-8 right-8 text-gray-300 hover:text-gray-900 transition-colors">
-        <X size={24} />
-      </button>
-      <h3 className="text-2xl font-black text-gray-900 mb-8 tracking-tight">{title}</h3>
-      {children}
+    <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col relative animate-scale-up">
+      <div className="flex-shrink-0 p-10 pb-6 border-b border-gray-100 relative">
+        <button onClick={onClose} className="absolute top-8 right-8 text-gray-300 hover:text-gray-900 transition-colors">
+          <X size={24} />
+        </button>
+        <h3 className="text-2xl font-black text-gray-900 tracking-tight pr-12">{title}</h3>
+      </div>
+      <div className="flex-1 overflow-y-auto p-10 pt-6">
+        {children}
+      </div>
     </div>
   </div>
 );
