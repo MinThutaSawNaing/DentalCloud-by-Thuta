@@ -1,15 +1,17 @@
 import React from 'react';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import { TreatmentType } from '../types';
+import { formatCurrency, Currency } from '../utils/currency';
 
 interface TreatmentConfigViewProps {
   treatmentTypes: TreatmentType[];
+  currency: Currency;
   onAdd: () => void;
   onEdit: (t: TreatmentType) => void;
   onDelete: (id: string) => void;
 }
 
-const TreatmentConfigView: React.FC<TreatmentConfigViewProps> = ({ treatmentTypes, onAdd, onEdit, onDelete }) => (
+const TreatmentConfigView: React.FC<TreatmentConfigViewProps> = ({ treatmentTypes, currency, onAdd, onEdit, onDelete }) => (
   <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden animate-fade-in">
      <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white">
       <div>
@@ -47,7 +49,7 @@ const TreatmentConfigView: React.FC<TreatmentConfigViewProps> = ({ treatmentType
                 'bg-blue-50 text-blue-700 border-blue-100'
               }`}>{t.category}</span>
             </td>
-            <td className="px-6 py-4 text-gray-900 font-black">${(t.cost || 0).toFixed(2)}</td>
+            <td className="px-6 py-4 text-gray-900 font-black">{formatCurrency(t.cost || 0, currency)}</td>
             <td className="px-6 py-4 text-right space-x-2">
               <button 
                 onClick={() => onEdit(t)}

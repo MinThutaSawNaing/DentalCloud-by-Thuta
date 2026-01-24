@@ -1,15 +1,17 @@
 import React from 'react';
 import { X, Printer } from 'lucide-react';
 import { Patient, ClinicalRecord } from '../types';
+import { formatCurrency, Currency } from '../utils/currency';
 
 interface ReceiptProps {
   patient: Patient;
   treatments: ClinicalRecord[];
   paymentAmount?: number;
+  currency: Currency;
   onClose: () => void;
 }
 
-const Receipt: React.FC<ReceiptProps> = ({ patient, treatments, paymentAmount, onClose }) => {
+const Receipt: React.FC<ReceiptProps> = ({ patient, treatments, paymentAmount, currency, onClose }) => {
   const receiptNumber = `REC-${Date.now().toString().slice(-8)}`;
   const today = new Date().toLocaleDateString('en-US', { 
     year: 'numeric', 
@@ -112,7 +114,7 @@ const Receipt: React.FC<ReceiptProps> = ({ patient, treatments, paymentAmount, o
                           : 'General'}
                       </td>
                       <td className="py-3 px-4 text-sm text-gray-900 text-right font-semibold">
-                        ${(treatment.cost || 0).toFixed(2)}
+                        {formatCurrency(treatment.cost || 0, currency)}
                       </td>
                     </tr>
                   ))
@@ -128,21 +130,21 @@ const Receipt: React.FC<ReceiptProps> = ({ patient, treatments, paymentAmount, o
                 <div className="flex justify-between py-2 border-b border-gray-300">
                   <span className="text-sm font-semibold text-gray-700">Subtotal:</span>
                   <span className="text-sm font-semibold text-gray-900">
-                    ${totalTreatmentCost.toFixed(2)}
+                    {formatCurrency(totalTreatmentCost, currency)}
                   </span>
                 </div>
                 {totalPaid > 0 && (
                   <div className="flex justify-between py-2 border-b border-gray-300">
                     <span className="text-sm font-semibold text-gray-700">Payment Received:</span>
                     <span className="text-sm font-semibold text-green-600">
-                      -${totalPaid.toFixed(2)}
+                      -{formatCurrency(totalPaid, currency)}
                     </span>
                   </div>
                 )}
                 <div className="flex justify-between py-3 mt-2 border-t-2 border-gray-800">
                   <span className="text-base font-bold text-gray-900">Balance Due:</span>
                   <span className={`text-base font-bold ${remainingBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    ${remainingBalance.toFixed(2)}
+                    {formatCurrency(remainingBalance, currency)}
                   </span>
                 </div>
               </div>
@@ -155,7 +157,7 @@ const Receipt: React.FC<ReceiptProps> = ({ patient, treatments, paymentAmount, o
               <p className="text-sm font-semibold text-gray-900 mb-2">Payment Details:</p>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Payment Amount:</span>
-                <span className="font-semibold text-gray-900">${totalPaid.toFixed(2)}</span>
+                <span className="font-semibold text-gray-900">{formatCurrency(totalPaid, currency)}</span>
               </div>
               <div className="flex justify-between text-sm mt-1">
                 <span className="text-gray-600">Payment Date:</span>
@@ -295,7 +297,7 @@ const Receipt: React.FC<ReceiptProps> = ({ patient, treatments, paymentAmount, o
               <p className="text-sm font-semibold text-gray-900 mb-2">Payment Details:</p>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Payment Amount:</span>
-                <span className="font-semibold text-gray-900">${totalPaid.toFixed(2)}</span>
+                <span className="font-semibold text-gray-900">{formatCurrency(totalPaid, currency)}</span>
               </div>
               <div className="flex justify-between text-sm mt-1">
                 <span className="text-gray-600">Payment Date:</span>

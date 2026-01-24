@@ -2,15 +2,18 @@ import React, { useState } from 'react';
 import { X, Plus, Minus, Package, Loader2 } from 'lucide-react';
 import { Medicine } from '../types';
 import { Modal } from './Shared';
+import { formatCurrency, Currency } from '../utils/currency';
 
 interface MedicineSelectionModalProps {
   medicines: Medicine[];
+  currency: Currency;
   onConfirm: (selectedMedicines: { medicine: Medicine; quantity: number }[]) => void;
   onClose: () => void;
 }
 
 const MedicineSelectionModal: React.FC<MedicineSelectionModalProps> = ({
   medicines,
+  currency,
   onConfirm,
   onClose
 }) => {
@@ -90,7 +93,7 @@ const MedicineSelectionModal: React.FC<MedicineSelectionModalProps> = ({
                         )}
                         <div className="flex items-center gap-4 text-sm">
                           <span className="text-gray-600">
-                            <span className="font-medium">${medicine.price.toFixed(2)}</span> per {medicine.unit}
+                            <span className="font-medium">{formatCurrency(medicine.price || 0, currency)}</span> per {medicine.unit}
                           </span>
                           <span className={`text-xs ${isLowStock ? 'text-yellow-600' : 'text-gray-500'}`}>
                             Stock: {medicine.stock} {medicine.unit}
@@ -135,7 +138,7 @@ const MedicineSelectionModal: React.FC<MedicineSelectionModalProps> = ({
                       </button>
                       {quantity > 0 && (
                         <span className="ml-auto text-sm font-bold text-indigo-600">
-                          ${(medicine.price * quantity).toFixed(2)}
+                          {formatCurrency((medicine.price || 0) * quantity, currency)}
                         </span>
                       )}
                     </div>
@@ -148,7 +151,7 @@ const MedicineSelectionModal: React.FC<MedicineSelectionModalProps> = ({
               <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm font-medium text-gray-700">Total Medicine Cost:</span>
-                  <span className="text-xl font-black text-indigo-600">${totalPrice.toFixed(2)}</span>
+                  <span className="text-xl font-black text-indigo-600">{formatCurrency(totalPrice, currency)}</span>
                 </div>
                 <p className="text-xs text-gray-500">
                   {Array.from(selectedMedicines.entries())

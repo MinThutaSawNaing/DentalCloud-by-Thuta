@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check } from 'lucide-react';
 import { ClinicalRecord } from '../types';
+import { formatCurrency, Currency } from '../utils/currency';
 
 interface TreatmentSelectionModalProps {
   treatments: ClinicalRecord[];
+  currency: Currency;
   onConfirm: (selectedTreatments: ClinicalRecord[]) => void;
   onClose: () => void;
 }
 
 const TreatmentSelectionModal: React.FC<TreatmentSelectionModalProps> = ({
   treatments,
+  currency,
   onConfirm,
   onClose
 }) => {
@@ -114,7 +117,7 @@ const TreatmentSelectionModal: React.FC<TreatmentSelectionModalProps> = ({
                         <div className="flex justify-between items-start mb-1">
                           <h4 className="font-semibold text-gray-900">{treatment.description}</h4>
                           <span className="text-base font-bold text-gray-900">
-                            ${(treatment.cost || 0).toFixed(2)}
+                            {formatCurrency(treatment.cost || 0, currency)}
                           </span>
                         </div>
                         <div className="flex gap-4 text-sm text-gray-600">
@@ -142,7 +145,7 @@ const TreatmentSelectionModal: React.FC<TreatmentSelectionModalProps> = ({
           <div>
             <p className="text-sm text-gray-600">Total Selected:</p>
             <p className="text-2xl font-bold text-gray-900">
-              ${totalSelected.toFixed(2)}
+              {formatCurrency(totalSelected, currency)}
             </p>
           </div>
           <div className="flex gap-3">

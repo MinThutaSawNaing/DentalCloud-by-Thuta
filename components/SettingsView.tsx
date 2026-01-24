@@ -9,7 +9,7 @@ interface SettingsViewProps {
 const SettingsView: React.FC<SettingsViewProps> = ({ currency, onCurrencyChange }) => {
   const currencySymbols = {
     USD: '$',
-    MMK: 'K'
+    MMK: 'Ks'
   };
 
   const currencyNames = {

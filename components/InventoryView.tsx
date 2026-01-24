@@ -1,10 +1,12 @@
 import React from 'react';
 import { Plus, Edit2, Trash2, Package, AlertTriangle, Loader2 } from 'lucide-react';
 import { Medicine } from '../types';
+import { formatCurrency, Currency } from '../utils/currency';
 
 interface InventoryViewProps {
   medicines: Medicine[];
   loading: boolean;
+  currency: Currency;
   onAdd: () => void;
   onEdit: (medicine: Medicine) => void;
   onDelete: (id: string) => void;
@@ -13,6 +15,7 @@ interface InventoryViewProps {
 const InventoryView: React.FC<InventoryViewProps> = ({
   medicines,
   loading,
+  currency,
   onAdd,
   onEdit,
   onDelete
@@ -95,7 +98,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({
                       )}
                     </td>
                     <td className="px-6 py-4 text-gray-700 font-medium">{medicine.unit}</td>
-                    <td className="px-6 py-4 text-gray-900 font-black">${(medicine.price || 0).toFixed(2)}</td>
+                    <td className="px-6 py-4 text-gray-900 font-black">{formatCurrency(medicine.price || 0, currency)}</td>
                     <td className="px-6 py-4">
                       <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold border ${status.bg} ${status.color} ${status.border}`}>
                         {status.icon}

@@ -1,15 +1,17 @@
 import React from 'react';
 import { Search, Plus, Loader2, ChevronRight } from 'lucide-react';
 import { Patient } from '../types';
+import { formatCurrency, Currency } from '../utils/currency';
 
 interface PatientsViewProps {
   patients: Patient[];
   loading: boolean;
+  currency: Currency;
   onSelectPatient: (patient: Patient) => void;
   onAddPatient: () => void;
 }
 
-const PatientsView: React.FC<PatientsViewProps> = ({ patients, loading, onSelectPatient, onAddPatient }) => (
+const PatientsView: React.FC<PatientsViewProps> = ({ patients, loading, currency, onSelectPatient, onAddPatient }) => (
   <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden animate-fade-in">
     <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-10">
       <div>
@@ -65,7 +67,7 @@ const PatientsView: React.FC<PatientsViewProps> = ({ patients, loading, onSelect
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm">
                 {patient.balance > 0 ? (
-                  <span className="text-red-600 font-bold bg-red-50 px-2 py-1 rounded border border-red-100">${patient.balance.toFixed(2)}</span>
+                  <span className="text-red-600 font-bold bg-red-50 px-2 py-1 rounded border border-red-100">{formatCurrency(patient.balance || 0, currency)}</span>
                 ) : (
                   <span className="text-green-600 font-medium">Clear</span>
                 )}

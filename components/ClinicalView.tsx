@@ -2,6 +2,7 @@ import React from 'react';
 import { User, X, Upload, Trash2, FileText, Receipt as ReceiptIcon, Package } from 'lucide-react';
 import { ToothSelector } from './ToothSelector';
 import { Patient, TreatmentType, ClinicalRecord, PatientFile } from '../types';
+import { formatCurrency, getCurrencySymbol, Currency } from '../utils/currency';
 
 interface ClinicalViewProps {
   selectedPatient: Patient | null;
@@ -11,6 +12,7 @@ interface ClinicalViewProps {
   patientFiles: PatientFile[];
   uploadingFiles: boolean;
   useFlatRate: boolean;
+  currency: Currency;
   onToggleTooth: (id: number) => void;
   onTreatmentSubmit: (t: TreatmentType) => void;
   onPaymentRequest: (amount: number) => void;
@@ -31,6 +33,7 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
   patientFiles,
   uploadingFiles,
   useFlatRate,
+  currency,
   onToggleTooth,
   onTreatmentSubmit,
   onPaymentRequest,
@@ -42,6 +45,7 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
   onAddMedicines,
   onToggleFlatRate
 }) => {
+  const currencySymbol = getCurrencySymbol(currency);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const formatBytes = (bytes: number) => {
@@ -110,8 +114,8 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
                    ? t.cost 
                    : (t.cost * (selectedTeeth.length || 1));
                  const costLabel = useFlatRate 
-                   ? `$${t.cost.toFixed(2)} (flat rate)` 
-                   : `$${t.cost.toFixed(2)} / tooth`;
+                   ? `${formatCurrency(t.cost, currency)} (flat rate)` 
+                   : `${formatCurrency(t.cost, currency)} / tooth`;
                  const isDisabled = !useFlatRate && selectedTeeth.length === 0;
                  
                  return (
@@ -125,10 +129,10 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
                      <span className="text-xs text-indigo-600 group-hover:text-indigo-100">
                        {costLabel}
                        {!useFlatRate && selectedTeeth.length > 0 && (
-                         <span className="block mt-0.5 font-semibold">Total: ${displayCost.toFixed(2)}</span>
+                         <span className="block mt-0.5 font-semibold">Total: {formatCurrency(displayCost, currency)}</span>
                        )}
                        {useFlatRate && (
-                         <span className="block mt-0.5 font-semibold text-green-600 group-hover:text-green-200">Flat: ${displayCost.toFixed(2)}</span>
+                         <span className="block mt-0.5 font-semibold text-green-600 group-hover:text-green-200">Flat: {formatCurrency(displayCost, currency)}</span>
                        )}
                      </span>
                    </button>
@@ -163,7 +167,7 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
                         <span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">{rec.teeth.length > 0 ? rec.teeth.join(', ') : 'General'}</span>
                       </td>
                       <td className="px-4 py-3 font-medium text-gray-800">{rec.description}</td>
-                      <td className="px-4 py-3 text-right font-bold text-gray-900">${rec.cost.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-right font-bold text-gray-900">{formatCurrency(rec.cost || 0, currency)}</td>
                     </tr>
                   ))
                 )}
@@ -194,7 +198,7 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
                  <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1">Outstanding Balance</p>
                  <div className="flex justify-between items-baseline">
                     <p className={`text-3xl font-black ${selectedPatient.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      ${selectedPatient.balance.toFixed(2)}
+                      {formatCurrency(selectedPatient.balance || 0, currency)}
                     </p>
                     {selectedPatient.balance > 0 && (
                       <button 

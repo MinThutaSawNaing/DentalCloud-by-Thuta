@@ -31,7 +31,7 @@ import {
 } from './types';
 import { TREATMENT_CATEGORIES } from './constants';
 import { api } from './services/api';
-import { formatCurrency, Currency } from './utils/currency';
+import { formatCurrency, getCurrencySymbol, Currency } from './utils/currency';
 import { auth } from './services/auth';
 import { supabase } from './services/supabase';
 
@@ -564,7 +564,7 @@ const App: React.FC = () => {
       await fetchMedicines();
       
       // Show success message
-      alert(`Successfully added ${selectedMedicines.length} medicine(s) to patient's bill. Total: $${medicineCost.toFixed(2)}`);
+      alert(`Successfully added ${selectedMedicines.length} medicine(s) to patient's bill. Total: ${formatCurrency(medicineCost, currency)}`);
     } catch (err: any) {
       alert(err.message);
     }
@@ -723,12 +723,12 @@ const App: React.FC = () => {
         <div className="max-w-6xl mx-auto">
           <Suspense fallback={<div className="flex justify-center p-20"><Loader2 className="animate-spin text-indigo-600 w-10 h-10" /></div>}>
             {currentView === 'dashboard' && <DashboardView patients={patients} appointments={appointments} treatmentRecords={globalRecords} currency={currency} />}
-            {currentView === 'patients' && <PatientsView patients={patients} loading={loading} onSelectPatient={handlePatientSelect} onAddPatient={() => setShowPatientModal(true)} />}
+            {currentView === 'patients' && <PatientsView patients={patients} loading={loading} currency={currency} onSelectPatient={handlePatientSelect} onAddPatient={() => setShowPatientModal(true)} />}
             {currentView === 'appointments' && <AppointmentsView appointments={appointments} loading={loading} onAddAppointment={() => {setEditingAppointment(null); setNewAppointmentData({ date: '', time: '', type: 'Checkup', status: 'Scheduled', patient_id: '', doctor_id: '' }); setAvailableTimes([]); setShowAppointmentModal(true)}} onEditAppointment={(apt) => {setEditingAppointment(apt); setNewAppointmentData({ date: apt.date, time: apt.time, type: apt.type || 'Checkup', status: apt.status, patient_id: apt.patient_id, doctor_id: apt.doctor_id, notes: apt.notes }); if (apt.doctor_id && apt.date) fetchAvailableTimes(apt.doctor_id, apt.date); setShowAppointmentModal(true)}} onDeleteAppointment={handleDeleteAppointment} onUpdateStatus={handleUpdateAppointmentStatus} />}
             {currentView === 'doctors' && <DoctorsView doctors={doctors} loading={loading} onAdd={() => {setEditingDoctor(null); setNewDoctorData({ name: '', email: '', phone: '', specialization: '', schedules: [] }); setShowDoctorModal(true)}} onEdit={(doc) => {setEditingDoctor(doc); setNewDoctorData(doc); setShowDoctorModal(true)}} onDelete={handleDeleteDoctor} />}
-            {currentView === 'treatments' && <TreatmentConfigView treatmentTypes={treatmentTypes} onAdd={() => {setEditingTreatmentType(null); setShowTreatmentTypeModal(true)}} onEdit={(t) => {setEditingTreatmentType(t); setNewTreatmentTypeData(t); setShowTreatmentTypeModal(true)}} onDelete={handleDeleteTreatmentType} />}
+            {currentView === 'treatments' && <TreatmentConfigView treatmentTypes={treatmentTypes} currency={currency} onAdd={() => {setEditingTreatmentType(null); setShowTreatmentTypeModal(true)}} onEdit={(t) => {setEditingTreatmentType(t); setNewTreatmentTypeData(t); setShowTreatmentTypeModal(true)}} onDelete={handleDeleteTreatmentType} />}
             {currentView === 'records' && <RecordsView records={globalRecords} loading={loading} onRefresh={fetchGlobalRecords} onDeleteAll={handleDeleteAllRecords} currency={currency} />}
-            {currentView === 'inventory' && <InventoryView medicines={medicines} loading={loading} onAdd={() => {setEditingMedicine(null); setNewMedicineData({ name: '', description: '', unit: 'pack', price: 0, stock: 0, min_stock: 0, category: '' }); setShowMedicineModal(true)}} onEdit={(med) => {setEditingMedicine(med); setNewMedicineData(med); setShowMedicineModal(true)}} onDelete={handleDeleteMedicine} />}
+            {currentView === 'inventory' && <InventoryView medicines={medicines} loading={loading} currency={currency} onAdd={() => {setEditingMedicine(null); setNewMedicineData({ name: '', description: '', unit: 'pack', price: 0, stock: 0, min_stock: 0, category: '' }); setShowMedicineModal(true)}} onEdit={(med) => {setEditingMedicine(med); setNewMedicineData(med); setShowMedicineModal(true)}} onDelete={handleDeleteMedicine} />}
             {currentView === 'users' && isAdmin && <UsersView users={users} loading={loading} isAdmin={isAdmin} onAdd={() => {setEditingUser(null); setNewUserData({ username: '', password: '', role: 'normal' }); setShowUserModal(true)}} onEdit={(user) => {setEditingUser(user); setNewUserData({ username: user.username, password: '', role: user.role }); setShowUserModal(true)}} onDelete={handleDeleteUser} />}
             {currentView === 'settings' && <SettingsView currency={currency} onCurrencyChange={setCurrency} />}
             {currentView === 'finance' && <ClinicalView 
@@ -739,6 +739,7 @@ const App: React.FC = () => {
                 patientFiles={patientFiles}
                 uploadingFiles={uploading}
                 useFlatRate={useFlatRate}
+                currency={currency}
                 onUploadFiles={handleUploadFiles}
                 onDeleteFile={handleDeleteFile}
                 onToggleTooth={(id) => selectedTeeth.includes(id) ? setSelectedTeeth(selectedTeeth.filter(t => t !== id)) : setSelectedTeeth([...selectedTeeth, id])}
@@ -996,7 +997,7 @@ const App: React.FC = () => {
                  {TREATMENT_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
               </select>
             </div>
-            <Input label="Standard Fee ($)" type="number" required min="0" value={newTreatmentTypeData.cost} onChange={(e: any) => setNewTreatmentTypeData({...newTreatmentTypeData, cost: parseFloat(e.target.value)})} />
+            <Input label={`Standard Fee (${getCurrencySymbol(currency)})`} type="number" required min="0" value={newTreatmentTypeData.cost} onChange={(e: any) => setNewTreatmentTypeData({...newTreatmentTypeData, cost: parseFloat(e.target.value)})} />
             <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg">Save Configuration</button>
           </form>
         </Modal>
@@ -1078,7 +1079,7 @@ const App: React.FC = () => {
             </div>
             <div className="grid grid-cols-3 gap-4">
               <Input 
-                label="Price ($)" 
+                label={`Price (${getCurrencySymbol(currency)})`} 
                 type="number" 
                 required 
                 min="0" 
@@ -1113,6 +1114,7 @@ const App: React.FC = () => {
         <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center"><Loader2 className="animate-spin text-white w-10 h-10" /></div>}>
           <MedicineSelectionModal
             medicines={medicines}
+            currency={currency}
             onConfirm={handleMedicineSelectionConfirm}
             onClose={() => {
               setShowMedicineSelectionModal(false);
@@ -1125,10 +1127,10 @@ const App: React.FC = () => {
         <Modal title="Financial Processing" onClose={() => setShowPaymentModal(false)}>
           <div className="mb-8 p-4 bg-gray-50 rounded-2xl border border-gray-100 text-center">
             <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mb-1">Outstanding Balance</p>
-            <p className="text-3xl font-black text-gray-900">${(selectedPatient?.balance || 0).toFixed(2)}</p>
+            <p className="text-3xl font-black text-gray-900">{formatCurrency(selectedPatient?.balance || 0, currency)}</p>
           </div>
           <form onSubmit={handlePaymentSubmit} className="space-y-5">
-            <Input label="Payment Amount Recieved ($)" type="number" required min="0.01" step="0.01" max={selectedPatient?.balance}
+            <Input label={`Payment Amount Recieved (${getCurrencySymbol(currency)})`} type="number" required min="0.01" step="0.01" max={selectedPatient?.balance}
               value={paymentAmount} onChange={(e: any) => setPaymentAmount(parseFloat(e.target.value))} />
             <button type="submit" className="w-full bg-green-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-green-600/20">Post Payment & Clear Balance</button>
           </form>
@@ -1139,6 +1141,7 @@ const App: React.FC = () => {
         <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center"><Loader2 className="animate-spin text-white w-10 h-10" /></div>}>
           <TreatmentSelectionModal
             treatments={treatmentHistory}
+            currency={currency}
             onConfirm={handleTreatmentSelectionConfirm}
             onClose={() => setShowTreatmentSelection(false)}
           />
@@ -1151,6 +1154,7 @@ const App: React.FC = () => {
             patient={selectedPatient}
             treatments={selectedTreatmentsForReceipt.length > 0 ? selectedTreatmentsForReceipt : treatmentHistory}
             paymentAmount={lastPaymentAmount}
+            currency={currency}
             onClose={() => setShowReceipt(false)}
           />
         </Suspense>
