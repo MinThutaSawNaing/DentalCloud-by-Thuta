@@ -36,11 +36,14 @@ export const ToothSelector: React.FC<SelectorProps> = ({ selectedTeeth, onToggle
 
   // Handle tooth click/toggle from react-teeth-selector
   const handleTeethChange = (newMap: any, info: any) => {
-    // Extract ISO ID from info or fallback to arguments
-    const id = info?.id !== undefined ? info.id : (typeof info !== 'object' ? info : null);
+    // The library may pass the ID in different properties depending on version or event source
+    // Common patterns: info.id, info.target.id, or info being the ID itself
+    const rawId = info?.id || info?.target?.id || (typeof info !== 'object' ? info : null);
     
-    if (id != null) {
-      const isoId = parseInt(id.toString(), 10);
+    if (rawId != null) {
+      // Remove any non-numeric characters (like "tooth-") and parse
+      const isoId = parseInt(rawId.toString().replace(/\D/g, ''), 10);
+      
       if (!isNaN(isoId)) {
         // Convert ISO back to Universal before calling the toggle callback
         const universalId = isoToUniversal(isoId);
@@ -50,7 +53,7 @@ export const ToothSelector: React.FC<SelectorProps> = ({ selectedTeeth, onToggle
   };
 
   return (
-    <div className="flex flex-col items-center gap-3 p-3 bg-gradient-to-br from-slate-50 to-white rounded-xl border border-slate-200 shadow-sm w-full max-w-full mx-auto backdrop-blur-sm overflow-hidden">
+    <div className="flex flex-col items-center gap-3 p-3 bg-gradient-to-br from-slate-50 to-white rounded-xl border border-slate-200 shadow-sm w-full max-w-full mx-auto backdrop-blur-sm">
       
       {/* Diagram Title */}
       <div className="text-center mb-1">
@@ -65,7 +68,7 @@ export const ToothSelector: React.FC<SelectorProps> = ({ selectedTeeth, onToggle
 
       {/* React Teeth Selector Component */}
       <div className="w-full flex justify-center py-1">
-        <div className="w-full max-w-[400px]">
+        <div className="w-full max-w-[380px] cursor-pointer">
           <TeethDiagram 
             selectedTeeth={selectedTeethMap}
             onChange={handleTeethChange}
