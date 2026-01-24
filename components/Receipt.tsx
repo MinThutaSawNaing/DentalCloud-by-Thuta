@@ -21,7 +21,8 @@ const Receipt: React.FC<ReceiptProps> = ({ patient, treatments, paymentAmount, c
 
   const totalTreatmentCost = treatments.reduce((sum, treatment) => sum + (treatment.cost || 0), 0);
   const totalPaid = paymentAmount || 0;
-  const remainingBalance = patient.balance || 0;
+  // Calculate balance for THIS receipt: treatment cost minus payment received
+  const remainingBalance = Math.max(0, totalTreatmentCost - totalPaid);
 
   const handlePrint = () => {
     window.print();
