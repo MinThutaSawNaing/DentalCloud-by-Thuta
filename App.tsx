@@ -668,9 +668,6 @@ const App: React.FC = () => {
       {/* Sidebar Navigation */}
       <aside className="w-64 bg-gray-900 fixed inset-y-0 left-0 h-screen z-20 hidden md:flex border-r border-gray-800 flex-col overflow-hidden">
         <div className="p-8 flex items-center gap-3 flex-shrink-0">
-          <div className="bg-indigo-500 p-2.5 rounded-2xl shadow-lg shadow-indigo-500/20">
-            <Activity className="text-white w-6 h-6" />
-          </div>
           <span className="text-xl font-black text-white tracking-tight">DentalCloud<span className="text-indigo-400">Pro</span></span>
         </div>
         
