@@ -115,7 +115,7 @@ Provide professional, evidence-based advice for dental clinical scenarios.
 Always remind users that your suggestions should be verified by licensed professionals.`;
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
         {
           method: 'POST',
           headers: {
@@ -572,9 +572,9 @@ I can provide guidance on:
       </div>
 
       {/* Chat Container */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col" style={{ height: 'calc(100vh - 300px)', minHeight: '500px', maxHeight: '700px' }}>
         {/* Messages Area */}
-        <div className="h-[500px] overflow-y-auto p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {messages.map((message) => (
             <div
               key={message.id}
@@ -647,7 +647,7 @@ I can provide guidance on:
 
         {/* Quick Prompts */}
         {messages.length === 1 && (
-          <div className="px-6 pb-4 pt-2 border-t border-gray-100">
+          <div className="px-6 pb-4 pt-2 border-t border-gray-100 flex-shrink-0">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Quick Questions</p>
             <div className="grid grid-cols-2 gap-2">
               {quickPrompts.map((prompt, index) => (
@@ -664,7 +664,7 @@ I can provide guidance on:
         )}
 
         {/* Input Area */}
-        <div className="p-4 border-t border-gray-100">
+        <div className="p-4 border-t border-gray-100 flex-shrink-0">
           <div className="flex gap-3">
             <textarea
               ref={inputRef}
