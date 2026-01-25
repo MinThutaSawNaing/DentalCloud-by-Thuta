@@ -23,14 +23,25 @@ const UsersView: React.FC<UsersViewProps> = ({
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showAll, setShowAll] = useState(false);
-  const itemsPerPage = 5;
+  const [searchTerm, setSearchTerm] = useState('');
+  const itemsPerPage = 10;
+
+  // Filtered data based on search term
+  const filteredUsers = useMemo(() => {
+    if (!searchTerm) return users;
+    const term = searchTerm.toLowerCase();
+    return users.filter(user => 
+      user.username.toLowerCase().includes(term) ||
+      user.role.toLowerCase().includes(term)
+    );
+  }, [users, searchTerm]);
 
   // Paginated data
   const paginatedUsers = useMemo(() => {
-    if (showAll) return users;
+    if (showAll) return filteredUsers;
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return users.slice(startIndex, startIndex + itemsPerPage);
-  }, [users, currentPage, showAll]);
+    return filteredUsers.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredUsers, currentPage, showAll]);
 
   // Reset to first page when users change
   React.useEffect(() => {
@@ -76,6 +87,21 @@ const UsersView: React.FC<UsersViewProps> = ({
           <p className="text-sm text-gray-500">Manage system users and their roles</p>
         </div>
         <div className="flex gap-3">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search users..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1); // Reset to first page when searching
+              }}
+              className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64"
+            />
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
           {isAdmin && (
             <>
               <button

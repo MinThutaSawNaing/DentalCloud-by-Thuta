@@ -11,6 +11,8 @@ declare module 'jspdf' {
 }
 
 export const exportPatientsToPDF = (patients: Patient[], currency: Currency) => {
+  // Use all patients for export (not just filtered/paginated view)
+  const exportPatients = patients;
   const doc = new jsPDF();
   
   // Header
@@ -27,7 +29,7 @@ export const exportPatientsToPDF = (patients: Patient[], currency: Currency) => 
   autoTable(doc, {
     startY: 40,
     head: [['Patient Name', 'Contact', 'Email', 'Medical Status', 'Balance']],
-    body: patients.map(patient => [
+    body: exportPatients.map(patient => [
       patient.name,
       patient.phone,
       patient.email || 'N/A',
@@ -54,6 +56,8 @@ export const exportPatientsToPDF = (patients: Patient[], currency: Currency) => 
 };
 
 export const exportAppointmentsToPDF = (appointments: Appointment[]) => {
+  // Use all appointments for export (not just filtered/paginated view)
+  const exportAppointments = appointments;
   const doc = new jsPDF();
   
   // Header
@@ -67,7 +71,7 @@ export const exportAppointmentsToPDF = (appointments: Appointment[]) => {
   doc.text(`Total Appointments: ${appointments.length}`, 14, 34);
   
   // Upcoming Appointments
-  const upcoming = appointments.filter(apt => {
+  const upcoming = exportAppointments.filter(apt => {
     const aptDate = new Date(apt.date);
     return aptDate >= new Date() && apt.status === 'Scheduled';
   }).sort((a, b) => a.date.localeCompare(b.date));
@@ -96,7 +100,7 @@ export const exportAppointmentsToPDF = (appointments: Appointment[]) => {
   }
   
   // Past Appointments
-  const past = appointments.filter(apt => {
+  const past = exportAppointments.filter(apt => {
     const aptDate = new Date(apt.date);
     return aptDate < new Date() || apt.status !== 'Scheduled';
   }).sort((a, b) => b.date.localeCompare(a.date));
@@ -138,6 +142,8 @@ export const exportAppointmentsToPDF = (appointments: Appointment[]) => {
 };
 
 export const exportClinicalRecordsToPDF = (records: ClinicalRecord[], currency: Currency) => {
+  // Use all records for export (not just filtered/paginated view)
+  const exportRecords = records;
   const doc = new jsPDF();
   
   // Header
@@ -150,14 +156,14 @@ export const exportClinicalRecordsToPDF = (records: ClinicalRecord[], currency: 
   doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28);
   doc.text(`Total Records: ${records.length}`, 14, 34);
   
-  const totalRevenue = records.reduce((sum, rec) => sum + (rec.cost || 0), 0);
+  const totalRevenue = exportRecords.reduce((sum, rec) => sum + (rec.cost || 0), 0);
   doc.text(`Total Revenue: ${formatCurrency(totalRevenue, currency)}`, 14, 40);
   
   // Table
   autoTable(doc, {
     startY: 46,
     head: [['Date', 'Patient', 'Treatment', 'Teeth', 'Amount']],
-    body: records.map(rec => [
+    body: exportRecords.map(rec => [
       rec.date,
       rec.patient_name || 'Unknown',
       rec.description,
@@ -186,6 +192,8 @@ export const exportClinicalRecordsToPDF = (records: ClinicalRecord[], currency: 
 };
 
 export const exportDoctorsToPDF = (doctors: Doctor[]) => {
+  // Use all doctors for export (not just filtered/paginated view)
+  const exportDoctors = doctors;
   const doc = new jsPDF();
   
   // Header
@@ -202,7 +210,7 @@ export const exportDoctorsToPDF = (doctors: Doctor[]) => {
   autoTable(doc, {
     startY: 40,
     head: [['Doctor Name', 'Specialization', 'Contact', 'Email']],
-    body: doctors.map(doctor => [
+    body: exportDoctors.map(doctor => [
       `Dr. ${doctor.name}`,
       doctor.specialization || 'General',
       doctor.phone || 'N/A',
@@ -227,6 +235,8 @@ export const exportDoctorsToPDF = (doctors: Doctor[]) => {
 };
 
 export const exportInventoryToPDF = (medicines: Medicine[], currency: Currency) => {
+  // Use all medicines for export (not just filtered/paginated view)
+  const exportMedicines = medicines;
   const doc = new jsPDF();
   
   // Header
@@ -254,7 +264,7 @@ export const exportInventoryToPDF = (medicines: Medicine[], currency: Currency) 
   autoTable(doc, {
     startY: 52,
     head: [['Medicine', 'Category', 'Unit', 'Price', 'Stock', 'Min Stock', 'Value']],
-    body: medicines.map(med => [
+    body: exportMedicines.map(med => [
       med.name,
       med.category || 'N/A',
       med.unit,

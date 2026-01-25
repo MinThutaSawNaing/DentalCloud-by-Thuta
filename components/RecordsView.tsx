@@ -16,14 +16,27 @@ interface RecordsViewProps {
 const RecordsView: React.FC<RecordsViewProps> = ({ records, loading, onRefresh, onDeleteAll, currency }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showAll, setShowAll] = useState(false);
-  const itemsPerPage = 5;
+  const [searchTerm, setSearchTerm] = useState('');
+  const itemsPerPage = 10;
+
+  // Filtered data based on search term
+  const filteredRecords = useMemo(() => {
+    if (!searchTerm) return records;
+    const term = searchTerm.toLowerCase();
+    return records.filter(record => 
+      (record.patient_name || '').toLowerCase().includes(term) ||
+      record.description.toLowerCase().includes(term) ||
+      record.date.toLowerCase().includes(term) ||
+      record.teeth.some(tooth => tooth.toString().includes(term))
+    );
+  }, [records, searchTerm]);
 
   // Paginated data
   const paginatedRecords = useMemo(() => {
-    if (showAll) return records;
+    if (showAll) return filteredRecords;
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return records.slice(startIndex, startIndex + itemsPerPage);
-  }, [records, currentPage, showAll]);
+    return filteredRecords.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredRecords, currentPage, showAll]);
 
   // Reset to first page when records change
   React.useEffect(() => {
@@ -62,6 +75,21 @@ const RecordsView: React.FC<RecordsViewProps> = ({ records, loading, onRefresh, 
           <p className="text-sm text-gray-500">Master log of all performed clinical treatments</p>
         </div>
         <div className="flex gap-3">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search records..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1); // Reset to first page when searching
+              }}
+              className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64"
+            />
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
           <button 
             onClick={handleDownloadPDF} 
             disabled={records.length === 0}

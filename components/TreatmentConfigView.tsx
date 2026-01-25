@@ -15,14 +15,25 @@ interface TreatmentConfigViewProps {
 const TreatmentConfigView: React.FC<TreatmentConfigViewProps> = ({ treatmentTypes, currency, onAdd, onEdit, onDelete }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showAll, setShowAll] = useState(false);
-  const itemsPerPage = 5;
+  const [searchTerm, setSearchTerm] = useState('');
+  const itemsPerPage = 10;
+
+  // Filtered data based on search term
+  const filteredTypes = useMemo(() => {
+    if (!searchTerm) return treatmentTypes;
+    const term = searchTerm.toLowerCase();
+    return treatmentTypes.filter(type => 
+      type.name.toLowerCase().includes(term) ||
+      type.category.toLowerCase().includes(term)
+    );
+  }, [treatmentTypes, searchTerm]);
 
   // Paginated data
   const paginatedTypes = useMemo(() => {
-    if (showAll) return treatmentTypes;
+    if (showAll) return filteredTypes;
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return treatmentTypes.slice(startIndex, startIndex + itemsPerPage);
-  }, [treatmentTypes, currentPage, showAll]);
+    return filteredTypes.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredTypes, currentPage, showAll]);
 
   // Reset to first page when data changes
   React.useEffect(() => {
@@ -52,6 +63,21 @@ const TreatmentConfigView: React.FC<TreatmentConfigViewProps> = ({ treatmentType
         <p className="text-sm text-gray-500">Configure clinical services and standard pricing</p>
       </div>
       <div className="flex gap-3">
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Search treatments..."
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1); // Reset to first page when searching
+            }}
+            className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64"
+          />
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
         <button 
           onClick={handleDownloadPDF}
           disabled={treatmentTypes.length === 0}

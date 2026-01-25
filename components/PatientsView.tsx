@@ -16,14 +16,27 @@ interface PatientsViewProps {
 const PatientsView: React.FC<PatientsViewProps> = ({ patients, loading, currency, onSelectPatient, onAddPatient }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showAll, setShowAll] = useState(false);
-  const itemsPerPage = 5;
+  const [searchTerm, setSearchTerm] = useState('');
+  const itemsPerPage = 10;
+
+  // Filtered data based on search term
+  const filteredPatients = useMemo(() => {
+    if (!searchTerm) return patients;
+    const term = searchTerm.toLowerCase();
+    return patients.filter(patient => 
+      patient.name.toLowerCase().includes(term) ||
+      patient.email?.toLowerCase().includes(term) ||
+      patient.phone.toLowerCase().includes(term) ||
+      patient.medicalHistory?.toLowerCase().includes(term)
+    );
+  }, [patients, searchTerm]);
 
   // Paginated data
   const paginatedPatients = useMemo(() => {
-    if (showAll) return patients;
+    if (showAll) return filteredPatients;
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return patients.slice(startIndex, startIndex + itemsPerPage);
-  }, [patients, currentPage, showAll]);
+    return filteredPatients.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredPatients, currentPage, showAll]);
 
   // Reset to first page when patients change
   React.useEffect(() => {
@@ -44,7 +57,15 @@ const PatientsView: React.FC<PatientsViewProps> = ({ patients, loading, currency
       <div className="flex gap-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input type="text" placeholder="Search name, phone..." className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64"/>
+          <input 
+            type="text" 
+            placeholder="Search patients..." 
+            value={searchTerm}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1); // Reset to first page when searching
+            }}
+            className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64"/>
         </div>
         <button 
           onClick={handleDownloadPDF}

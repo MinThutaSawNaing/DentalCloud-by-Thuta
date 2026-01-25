@@ -25,7 +25,8 @@ const AppointmentsView: React.FC<AppointmentsViewProps> = ({
   const [pastPage, setPastPage] = useState(1);
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
   const [showAllPast, setShowAllPast] = useState(false);
-  const itemsPerPage = 5;
+  const [searchTerm, setSearchTerm] = useState('');
+  const itemsPerPage = 10;
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -55,7 +56,23 @@ const AppointmentsView: React.FC<AppointmentsViewProps> = ({
     }
   };
 
-  const upcomingAppointments = appointments.filter(apt => {
+  // Filtered data based on search term
+  const filteredAppointments = useMemo(() => {
+    if (!searchTerm) return appointments;
+    const term = searchTerm.toLowerCase();
+    return appointments.filter(apt => 
+      apt.patient_name?.toLowerCase().includes(term) ||
+      apt.type?.toLowerCase().includes(term) ||
+      apt.doctor_name?.toLowerCase().includes(term) ||
+      apt.date.toLowerCase().includes(term) ||
+      apt.time.toLowerCase().includes(term) ||
+      apt.status.toLowerCase().includes(term) ||
+      apt.notes?.toLowerCase().includes(term)
+    );
+  }, [appointments, searchTerm]);
+
+  // Separate upcoming and past appointments
+  const upcomingAppointments = filteredAppointments.filter(apt => {
     const aptDate = new Date(apt.date);
     aptDate.setHours(0, 0, 0, 0);
     const today = new Date();
@@ -67,7 +84,7 @@ const AppointmentsView: React.FC<AppointmentsViewProps> = ({
     return a.time.localeCompare(b.time);
   });
 
-  const pastAppointments = appointments.filter(apt => {
+  const pastAppointments = filteredAppointments.filter(apt => {
     const aptDate = new Date(apt.date);
     aptDate.setHours(0, 0, 0, 0);
     const today = new Date();
@@ -104,6 +121,22 @@ const AppointmentsView: React.FC<AppointmentsViewProps> = ({
           <p className="text-sm text-gray-500">Manage patient appointments and scheduling</p>
         </div>
         <div className="flex gap-3">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search appointments..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setUpcomingPage(1); // Reset to first page when searching
+                setPastPage(1);
+              }}
+              className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64"
+            />
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
           <button
             onClick={handleDownloadPDF}
             disabled={appointments.length === 0}
