@@ -27,10 +27,11 @@ const isoToUniversal = (n: number): number => {
 export const ToothSelector: React.FC<SelectorProps> = ({ selectedTeeth, onToggleTooth, onDeselectAll }) => {
   // Convert array of universal tooth numbers to ISO object map format
   const selectedTeethMap = useMemo(() => {
-    const map: { [key: number]: boolean } = {};
+    const map: { [key: string]: boolean } = {};
     selectedTeeth.forEach(toothId => {
       const isoId = universalToISO(toothId);
-      map[isoId] = true;
+      // The library requires 'tooth-' prefix for internal key matching
+      map[`tooth-${isoId}`] = true;
     });
     return map;
   }, [selectedTeeth]);
