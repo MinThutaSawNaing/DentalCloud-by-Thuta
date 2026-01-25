@@ -26,11 +26,25 @@ interface AIAssistantViewProps {
 }
 
 const AIAssistantView: React.FC<AIAssistantViewProps> = ({ patients, treatmentRecords }) => {
+  // Daily usage limit tracking
+  const DAILY_LIMIT = 3;
+  const [dailyUsageCount, setDailyUsageCount] = useState<number>(() => {
+    const today = new Date().toDateString();
+    const savedData = localStorage.getItem('loli_usage');
+    if (savedData) {
+      const { date, count } = JSON.parse(savedData);
+      if (date === today) {
+        return count;
+      }
+    }
+    return 0;
+  });
+  
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
       role: 'assistant',
-      content: `👋 Hello! I'm your AI Clinical Assistant. I can help you with:
+      content: `👋 Hello! I'm Loli, your AI Clinical Assistant. I can help you with:
 
 • Patient case analysis
 • Treatment recommendations
@@ -38,7 +52,9 @@ const AIAssistantView: React.FC<AIAssistantViewProps> = ({ patients, treatmentRe
 • Clinical documentation
 • Medical history interpretation
 
-How can I assist you today?`,
+How can I assist you today?
+
+💡 *Note: You have ${DAILY_LIMIT} free requests per day. Today's usage: ${dailyUsageCount}/${DAILY_LIMIT}*`,
       timestamp: new Date()
     }
   ]);
@@ -100,6 +116,29 @@ How can I assist you today?`,
   const callGeminiAPI = async (userMessage: string): Promise<string> => {
     const apiKey = process.env.GEMINI_API_KEY || MOCK_API_KEY;
     
+    // Check for identity questions first (works in both mock and real mode)
+    const lowerMessage = userMessage.toLowerCase();
+    if (lowerMessage.includes('who are you') || lowerMessage.includes('who is she') || 
+        lowerMessage.includes('who r u') || lowerMessage.includes('what is your name') ||
+        lowerMessage.includes('whats your name') || lowerMessage.includes("what's your name")) {
+      return `🤖 **About Me - Loli**
+
+I'm **Loli**, an AI model trained by **WinterArc Myanmar**, specially designed by **Min Thuta Saw Naing** (AI Engineer & DevOps) for Dental Clinic Usages.
+
+**My Purpose:**
+• Assist dental professionals with clinical decisions
+• Provide evidence-based treatment recommendations
+• Support patient care with dental knowledge
+• Help with documentation and clinical protocols
+
+**Created by:**
+👨‍💻 Min Thuta Saw Naing
+🏢 WinterArc Myanmar
+🎯 Specialized for Dental Healthcare
+
+*I'm here to support your dental practice with AI-powered assistance!* 🦷✨`;
+    }
+    
     // If using mock API key, return simulated response
     if (apiKey === MOCK_API_KEY || apiKey === 'REPLACE_WITH_YOUR_GEMINI_API_KEY') {
       return simulateMockResponse(userMessage);
@@ -108,14 +147,15 @@ How can I assist you today?`,
     // Real Gemini API call
     try {
       const contextData = getContextualData();
-      const systemPrompt = `You are an expert dental AI assistant helping dentists with clinical decisions. 
+      const systemPrompt = `You are Loli, an expert dental AI assistant created by WinterArc Myanmar and designed by Min Thuta Saw Naing (AI Engineer & DevOps) for dental clinic usage. You help dentists with clinical decisions.
 You have access to the following practice data: ${JSON.stringify(contextData, null, 2)}
 
 Provide professional, evidence-based advice for dental clinical scenarios. 
-Always remind users that your suggestions should be verified by licensed professionals.`;
+Always remind users that your suggestions should be verified by licensed professionals.
+If asked about your identity, respond that you are Loli, trained by WinterArc Myanmar, designed by Min Thuta Saw Naing for dental clinic usage.`;
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,
         {
           method: 'POST',
           headers: {
@@ -470,6 +510,24 @@ I can provide guidance on:
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
+    // Check daily usage limit
+    if (dailyUsageCount >= DAILY_LIMIT) {
+      const limitMessage: Message = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: `⚠️ **Daily Limit Reached**
+
+You've used all ${DAILY_LIMIT} free requests for today. Your limit will reset tomorrow at midnight.
+
+**Current Usage:** ${dailyUsageCount}/${DAILY_LIMIT}
+
+Thank you for using Loli! 🦷✨`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, limitMessage]);
+      return;
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -492,6 +550,13 @@ I can provide guidance on:
       };
 
       setMessages(prev => [...prev, assistantMessage]);
+      
+      // Increment usage count and save to localStorage
+      const newCount = dailyUsageCount + 1;
+      setDailyUsageCount(newCount);
+      const today = new Date().toDateString();
+      localStorage.setItem('loli_usage', JSON.stringify({ date: today, count: newCount }));
+      
     } catch (error) {
       console.error('Error:', error);
       const errorMessage: Message = {
@@ -515,8 +580,8 @@ I can provide guidance on:
   };
 
   const quickPrompts = [
+    "Who are you, Loli?",
     "What's the protocol for root canal treatment?",
-    "Guidelines for extracting a molar tooth?",
     "How to manage acute dental pain?",
     "Crown preparation steps explained",
   ];
@@ -530,8 +595,8 @@ I can provide guidance on:
             <Sparkles className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-3xl font-black text-gray-900">AI Clinical Assistant</h1>
-            <p className="text-sm text-gray-500 font-medium">Powered by Gemini AI</p>
+            <h1 className="text-3xl font-black text-gray-900">Loli - AI Clinical Assistant</h1>
+            <p className="text-sm text-gray-500 font-medium">by WinterArc Myanmar | Daily Limit: {dailyUsageCount}/{DAILY_LIMIT}</p>
           </div>
         </div>
 
