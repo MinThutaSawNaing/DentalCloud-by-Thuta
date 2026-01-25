@@ -14,7 +14,8 @@ import {
   Settings,
   Shield,
   LogOut,
-  Package
+  Package,
+  Sparkles
 } from 'lucide-react';
 
 import { Modal, Input, NavItem } from './components/Shared';
@@ -50,8 +51,9 @@ const LoginView = React.lazy(() => import('./components/LoginView'));
 const UsersView = React.lazy(() => import('./components/UsersView'));
 const InventoryView = React.lazy(() => import('./components/InventoryView'));
 const MedicineSelectionModal = React.lazy(() => import('./components/MedicineSelectionModal'));
+const AIAssistantView = React.lazy(() => import('./components/AIAssistantView'));
 
-type ViewState = 'dashboard' | 'patients' | 'appointments' | 'doctors' | 'finance' | 'treatments' | 'records' | 'settings' | 'users' | 'inventory';
+type ViewState = 'dashboard' | 'patients' | 'appointments' | 'doctors' | 'finance' | 'treatments' | 'records' | 'settings' | 'users' | 'inventory' | 'ai-assistant';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
@@ -724,6 +726,7 @@ const App: React.FC = () => {
              <NavItem icon={<ClipboardList size={18} />} label="Audit Log" active={currentView === 'records'} onClick={() => setCurrentView('records')} />
              <NavItem icon={<CreditCard size={18} />} label="Clinical Focus" active={currentView === 'finance'} onClick={() => setCurrentView('finance')} />
              <NavItem icon={<Package size={18} />} label="Inventory" active={currentView === 'inventory'} onClick={() => setCurrentView('inventory')} />
+             <NavItem icon={<Sparkles size={18} />} label="AI Assistant" active={currentView === 'ai-assistant'} onClick={() => setCurrentView('ai-assistant')} />
           </div>
           
           <div className="pt-8 pb-2">
@@ -786,6 +789,7 @@ const App: React.FC = () => {
             {currentView === 'inventory' && <InventoryView medicines={medicines} loading={loading} currency={currency} onAdd={() => {setEditingMedicine(null); setNewMedicineData({ name: '', description: '', unit: 'pack', price: 0, stock: 0, min_stock: 0, category: '' }); setShowMedicineModal(true)}} onEdit={(med) => {setEditingMedicine(med); setNewMedicineData(med); setShowMedicineModal(true)}} onDelete={handleDeleteMedicine} />}
             {currentView === 'users' && isAdmin && <UsersView users={users} loading={loading} isAdmin={isAdmin} onAdd={() => {setEditingUser(null); setNewUserData({ username: '', password: '', role: 'normal' }); setShowUserModal(true)}} onEdit={(user) => {setEditingUser(user); setNewUserData({ username: user.username, password: '', role: user.role }); setShowUserModal(true)}} onDelete={handleDeleteUser} />}
             {currentView === 'settings' && <SettingsView currency={currency} onCurrencyChange={handleCurrencyChange} />}
+            {currentView === 'ai-assistant' && <AIAssistantView patients={patients} treatmentRecords={globalRecords} />}
             {currentView === 'finance' && <ClinicalView 
                 selectedPatient={selectedPatient} 
                 selectedTeeth={selectedTeeth} 
