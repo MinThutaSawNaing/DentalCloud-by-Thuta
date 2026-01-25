@@ -115,7 +115,7 @@ Provide professional, evidence-based advice for dental clinical scenarios.
 Always remind users that your suggestions should be verified by licensed professionals.`;
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
         {
           method: 'POST',
           headers: {
