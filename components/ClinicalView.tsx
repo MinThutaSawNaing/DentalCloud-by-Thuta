@@ -14,6 +14,7 @@ interface ClinicalViewProps {
   useFlatRate: boolean;
   currency: Currency;
   onToggleTooth: (id: number) => void;
+  onDeselectAll: () => void;
   onTreatmentSubmit: (t: TreatmentType) => void;
   onPaymentRequest: (amount: number) => void;
   onClosePatient: () => void;
@@ -36,6 +37,7 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
   useFlatRate,
   currency,
   onToggleTooth,
+  onDeselectAll,
   onTreatmentSubmit,
   onPaymentRequest,
   onClosePatient,
@@ -89,6 +91,7 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
           <ToothSelector 
             selectedTeeth={selectedTeeth} 
             onToggleTooth={onToggleTooth} 
+            onDeselectAll={onDeselectAll}
           />
         </div>
         

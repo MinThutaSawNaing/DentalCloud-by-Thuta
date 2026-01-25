@@ -797,7 +797,8 @@ const App: React.FC = () => {
                 currency={currency}
                 onUploadFiles={handleUploadFiles}
                 onDeleteFile={handleDeleteFile}
-                onToggleTooth={(id) => selectedTeeth.includes(id) ? setSelectedTeeth(selectedTeeth.filter(t => t !== id)) : setSelectedTeeth([...selectedTeeth, id])}
+                onToggleTooth={(id) => setSelectedTeeth(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id])}
+                onDeselectAll={() => setSelectedTeeth([])}
                 onTreatmentSubmit={handleTreatmentSubmit}
                 onPaymentRequest={(amount) => { setPaymentAmount(amount); setShowPaymentModal(true); }}
                 onClosePatient={handleClosePatient}
