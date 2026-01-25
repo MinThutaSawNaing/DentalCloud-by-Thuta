@@ -8,6 +8,8 @@ interface SelectorProps {
 }
 
 // Mapping between Universal (1-32) and ISO (11-48) numbering systems
+// NOTE: The react-teeth-selector library uses Universal numbering (1-32) directly.
+// These conversion functions are kept for compatibility but may not be needed.
 const universalToISO = (n: number): number => {
   if (n >= 1 && n <= 8) return 19 - n;
   if (n >= 9 && n <= 16) return n + 12;
@@ -25,13 +27,17 @@ const isoToUniversal = (n: number): number => {
 };
 
 export const ToothSelector: React.FC<SelectorProps> = ({ selectedTeeth, onToggleTooth, onDeselectAll }) => {
-  // Convert array of universal tooth numbers to ISO object map format
+  // IMPORTANT: Check if the library uses Universal (1-32) or ISO/FDI (11-48) numbering
+  // Set this to false if the library uses Universal numbering directly
+  const USE_ISO_CONVERSION = false; // Changed to false to test if library uses Universal directly
+  
+  // Convert array of universal tooth numbers to ISO object map format (if needed)
   const selectedTeethMap = useMemo(() => {
     const map: { [key: string]: boolean } = {};
     selectedTeeth.forEach(toothId => {
-      const isoId = universalToISO(toothId);
-      // The library requires 'tooth-' prefix for internal key matching
-      map[`tooth-${isoId}`] = true;
+      const displayId = USE_ISO_CONVERSION ? universalToISO(toothId) : toothId;
+      // The library might require 'tooth-' prefix for internal key matching
+      map[`tooth-${displayId}`] = true;
     });
     return map;
   }, [selectedTeeth]);
@@ -42,13 +48,18 @@ export const ToothSelector: React.FC<SelectorProps> = ({ selectedTeeth, onToggle
     const rawId = info?.id || info?.number || info;
     
     if (rawId != null) {
-      // Parse the ID to a number (ISO format)
+      // Parse the ID to a number
       const cleanId = rawId.toString().replace(/\D/g, '');
-      const isoId = parseInt(cleanId, 10);
+      const toothId = parseInt(cleanId, 10);
       
-      if (!isNaN(isoId)) {
-        // Convert ISO back to Universal before calling the toggle callback
-        const universalId = isoToUniversal(isoId);
+      if (!isNaN(toothId)) {
+        // DEBUG: Log tooth selection for troubleshooting
+        console.log('[ToothSelector] Library returned ID:', toothId);
+        
+        // Convert to Universal if library uses ISO, otherwise use directly
+        const universalId = USE_ISO_CONVERSION ? isoToUniversal(toothId) : toothId;
+        console.log('[ToothSelector] Final Universal ID:', universalId);
+        
         onToggleTooth(universalId);
       }
     }
