@@ -1,7 +1,9 @@
-import React from 'react';
-import { Activity, Loader2, Download, Trash2 } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Activity, Loader2, Download, Trash2, FileDown } from 'lucide-react';
 import { ClinicalRecord } from '../types';
 import { formatCurrency, Currency } from '../utils/currency';
+import { exportClinicalRecordsToPDF } from '../utils/pdfExport';
+import Pagination from './Pagination';
 
 interface RecordsViewProps {
   records: ClinicalRecord[];
@@ -12,6 +14,26 @@ interface RecordsViewProps {
 }
 
 const RecordsView: React.FC<RecordsViewProps> = ({ records, loading, onRefresh, onDeleteAll, currency }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showAll, setShowAll] = useState(false);
+  const itemsPerPage = 5;
+
+  // Paginated data
+  const paginatedRecords = useMemo(() => {
+    if (showAll) return records;
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return records.slice(startIndex, startIndex + itemsPerPage);
+  }, [records, currentPage, showAll]);
+
+  // Reset to first page when records change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [records]);
+
+  const handleDownloadPDF = () => {
+    exportClinicalRecordsToPDF(records, currency);
+  };
+
   const handleDownloadJSON = () => {
     const dataStr = JSON.stringify(records, null, 2);
     const dataBlob = new Blob([dataStr], { type: 'application/json' });
@@ -40,6 +62,13 @@ const RecordsView: React.FC<RecordsViewProps> = ({ records, loading, onRefresh, 
           <p className="text-sm text-gray-500">Master log of all performed clinical treatments</p>
         </div>
         <div className="flex gap-3">
+          <button 
+            onClick={handleDownloadPDF} 
+            disabled={records.length === 0}
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <FileDown size={16} /> Download PDF
+          </button>
           <button 
             onClick={handleDownloadJSON} 
             disabled={records.length === 0}
@@ -73,7 +102,7 @@ const RecordsView: React.FC<RecordsViewProps> = ({ records, loading, onRefresh, 
               </td>
             </tr>
           ) : (
-            records.map((rec) => (
+            paginatedRecords.map((rec) => (
               <tr key={rec.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-6 py-4 text-sm text-gray-500">{rec.date}</td>
                 <td className="px-6 py-4 font-bold text-gray-900">{rec.patient_name || "Unknown"}</td>
@@ -91,6 +120,16 @@ const RecordsView: React.FC<RecordsViewProps> = ({ records, loading, onRefresh, 
           )}
         </tbody>
       </table>
+    )}
+    {!loading && records.length > 0 && (
+      <Pagination
+        totalItems={records.length}
+        itemsPerPage={itemsPerPage}
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+        showAll={showAll}
+        onToggleShowAll={() => setShowAll(!showAll)}
+      />
     )}
    </div>
   );

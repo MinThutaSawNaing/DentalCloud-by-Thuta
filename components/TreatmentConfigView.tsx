@@ -1,7 +1,8 @@
-import React from 'react';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Plus, Edit2, Trash2, FileDown } from 'lucide-react';
 import { TreatmentType } from '../types';
 import { formatCurrency, Currency } from '../utils/currency';
+import Pagination from './Pagination';
 
 interface TreatmentConfigViewProps {
   treatmentTypes: TreatmentType[];
@@ -11,16 +12,57 @@ interface TreatmentConfigViewProps {
   onDelete: (id: string) => void;
 }
 
-const TreatmentConfigView: React.FC<TreatmentConfigViewProps> = ({ treatmentTypes, currency, onAdd, onEdit, onDelete }) => (
+const TreatmentConfigView: React.FC<TreatmentConfigViewProps> = ({ treatmentTypes, currency, onAdd, onEdit, onDelete }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showAll, setShowAll] = useState(false);
+  const itemsPerPage = 5;
+
+  // Paginated data
+  const paginatedTypes = useMemo(() => {
+    if (showAll) return treatmentTypes;
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return treatmentTypes.slice(startIndex, startIndex + itemsPerPage);
+  }, [treatmentTypes, currentPage, showAll]);
+
+  // Reset to first page when data changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [treatmentTypes]);
+
+  const handleDownloadPDF = () => {
+    // Simple CSV export for treatments
+    const csv = ['Service Name,Category,Standard Fee',
+      ...treatmentTypes.map(t => `"${t.name}","${t.category}","${formatCurrency(t.cost || 0, currency)}"`)].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `treatment-catalogue-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  return (
   <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden animate-fade-in">
      <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white">
       <div>
         <h2 className="text-xl font-bold text-gray-800">Treatment Catalogue</h2>
         <p className="text-sm text-gray-500">Configure clinical services and standard pricing</p>
       </div>
-      <button onClick={onAdd} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
-        <Plus className="w-4 h-4" /> Add New Service
-      </button>
+      <div className="flex gap-3">
+        <button 
+          onClick={handleDownloadPDF}
+          disabled={treatmentTypes.length === 0}
+          className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <FileDown className="w-4 h-4" /> Export CSV
+        </button>
+        <button onClick={onAdd} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700">
+          <Plus className="w-4 h-4" /> Add New Service
+        </button>
+      </div>
     </div>
     <table className="w-full">
       <thead className="bg-gray-50 border-b border-gray-100">
@@ -39,7 +81,7 @@ const TreatmentConfigView: React.FC<TreatmentConfigViewProps> = ({ treatmentType
             </td>
           </tr>
         ) : (
-          treatmentTypes.map(t => (
+          paginatedTypes.map(t => (
           <tr key={t.id} className="hover:bg-gray-50 transition-colors">
             <td className="px-6 py-4 font-bold text-gray-900">{t.name}</td>
             <td className="px-6 py-4">
@@ -66,7 +108,18 @@ const TreatmentConfigView: React.FC<TreatmentConfigViewProps> = ({ treatmentType
         )}
       </tbody>
     </table>
+    {treatmentTypes.length > 0 && (
+      <Pagination
+        totalItems={treatmentTypes.length}
+        itemsPerPage={itemsPerPage}
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+        showAll={showAll}
+        onToggleShowAll={() => setShowAll(!showAll)}
+      />
+    )}
   </div>
-);
+  );
+};
 
 export default TreatmentConfigView;

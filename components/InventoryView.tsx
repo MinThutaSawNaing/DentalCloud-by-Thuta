@@ -1,7 +1,9 @@
-import React from 'react';
-import { Plus, Edit2, Trash2, Package, AlertTriangle, Loader2 } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Plus, Edit2, Trash2, Package, AlertTriangle, Loader2, FileDown } from 'lucide-react';
 import { Medicine } from '../types';
 import { formatCurrency, Currency } from '../utils/currency';
+import { exportInventoryToPDF } from '../utils/pdfExport';
+import Pagination from './Pagination';
 
 interface InventoryViewProps {
   medicines: Medicine[];
@@ -20,6 +22,26 @@ const InventoryView: React.FC<InventoryViewProps> = ({
   onEdit,
   onDelete
 }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showAll, setShowAll] = useState(false);
+  const itemsPerPage = 5;
+
+  // Paginated data
+  const paginatedMedicines = useMemo(() => {
+    if (showAll) return medicines;
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return medicines.slice(startIndex, startIndex + itemsPerPage);
+  }, [medicines, currentPage, showAll]);
+
+  // Reset to first page when medicines change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [medicines]);
+
+  const handleDownloadPDF = () => {
+    exportInventoryToPDF(medicines, currency);
+  };
+
   const getStockStatus = (stock: number, minStock?: number) => {
     if (minStock !== undefined && stock <= minStock) {
       return { color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', icon: <AlertTriangle size={14} /> };
@@ -40,12 +62,21 @@ const InventoryView: React.FC<InventoryViewProps> = ({
           <h2 className="text-xl font-bold text-gray-800">Medicine Inventory</h2>
           <p className="text-sm text-gray-500">Manage medicine stock and pricing</p>
         </div>
-        <button
-          onClick={onAdd}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" /> Add Medicine
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={handleDownloadPDF}
+            disabled={medicines.length === 0}
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <FileDown className="w-4 h-4" /> Export PDF
+          </button>
+          <button
+            onClick={onAdd}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Add Medicine
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -71,7 +102,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {medicines.map((medicine) => {
+              {paginatedMedicines.map((medicine) => {
                 const status = getStockStatus(medicine.stock, medicine.min_stock);
                 return (
                   <tr key={medicine.id} className="hover:bg-gray-50 transition-colors">
@@ -134,6 +165,16 @@ const InventoryView: React.FC<InventoryViewProps> = ({
             </tbody>
           </table>
         </div>
+      )}
+      {!loading && medicines.length > 0 && (
+        <Pagination
+          totalItems={medicines.length}
+          itemsPerPage={itemsPerPage}
+          currentPage={currentPage}
+          onPageChange={setCurrentPage}
+          showAll={showAll}
+          onToggleShowAll={() => setShowAll(!showAll)}
+        />
       )}
     </div>
   );

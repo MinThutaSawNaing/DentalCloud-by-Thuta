@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, Loader2, User, Shield, UserCheck } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Plus, Edit2, Trash2, Loader2, User, Shield, UserCheck, FileDown } from 'lucide-react';
 import { User as UserType } from '../types';
 import { Modal, Input } from './Shared';
+import Pagination from './Pagination';
 
 interface UsersViewProps {
   users: UserType[];
@@ -20,6 +21,36 @@ const UsersView: React.FC<UsersViewProps> = ({
   onEdit,
   onDelete
 }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showAll, setShowAll] = useState(false);
+  const itemsPerPage = 5;
+
+  // Paginated data
+  const paginatedUsers = useMemo(() => {
+    if (showAll) return users;
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return users.slice(startIndex, startIndex + itemsPerPage);
+  }, [users, currentPage, showAll]);
+
+  // Reset to first page when users change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [users]);
+
+  const handleDownloadCSV = () => {
+    const csv = ['Username,Role,Created',
+      ...users.map(u => `"${u.username}","${u.role}","${u.created_at ? new Date(u.created_at).toLocaleDateString() : 'N/A'}"`)].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `users-report-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const getRoleBadge = (role: 'admin' | 'normal') => {
     if (role === 'admin') {
       return (
@@ -44,14 +75,25 @@ const UsersView: React.FC<UsersViewProps> = ({
           <h2 className="text-xl font-bold text-gray-800">User Management</h2>
           <p className="text-sm text-gray-500">Manage system users and their roles</p>
         </div>
-        {isAdmin && (
-          <button
-            onClick={onAdd}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" /> Add User
-          </button>
-        )}
+        <div className="flex gap-3">
+          {isAdmin && (
+            <>
+              <button
+                onClick={handleDownloadCSV}
+                disabled={users.length === 0}
+                className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FileDown className="w-4 h-4" /> Export CSV
+              </button>
+              <button
+                onClick={onAdd}
+                className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+              >
+                <Plus className="w-4 h-4" /> Add User
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {loading ? (
@@ -77,7 +119,7 @@ const UsersView: React.FC<UsersViewProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
+                {paginatedUsers.map((user) => (
                   <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-3">
@@ -123,6 +165,16 @@ const UsersView: React.FC<UsersViewProps> = ({
             </table>
           </div>
         </div>
+      )}
+      {!loading && users.length > 0 && (
+        <Pagination
+          totalItems={users.length}
+          itemsPerPage={itemsPerPage}
+          currentPage={currentPage}
+          onPageChange={setCurrentPage}
+          showAll={showAll}
+          onToggleShowAll={() => setShowAll(!showAll)}
+        />
       )}
     </div>
   );

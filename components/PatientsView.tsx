@@ -1,7 +1,9 @@
-import React from 'react';
-import { Search, Plus, Loader2, ChevronRight } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Search, Plus, Loader2, ChevronRight, FileDown } from 'lucide-react';
 import { Patient } from '../types';
 import { formatCurrency, Currency } from '../utils/currency';
+import { exportPatientsToPDF } from '../utils/pdfExport';
+import Pagination from './Pagination';
 
 interface PatientsViewProps {
   patients: Patient[];
@@ -11,7 +13,28 @@ interface PatientsViewProps {
   onAddPatient: () => void;
 }
 
-const PatientsView: React.FC<PatientsViewProps> = ({ patients, loading, currency, onSelectPatient, onAddPatient }) => (
+const PatientsView: React.FC<PatientsViewProps> = ({ patients, loading, currency, onSelectPatient, onAddPatient }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showAll, setShowAll] = useState(false);
+  const itemsPerPage = 5;
+
+  // Paginated data
+  const paginatedPatients = useMemo(() => {
+    if (showAll) return patients;
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return patients.slice(startIndex, startIndex + itemsPerPage);
+  }, [patients, currentPage, showAll]);
+
+  // Reset to first page when patients change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [patients]);
+
+  const handleDownloadPDF = () => {
+    exportPatientsToPDF(patients, currency);
+  };
+
+  return (
   <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden animate-fade-in">
     <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-10">
       <div>
@@ -23,6 +46,13 @@ const PatientsView: React.FC<PatientsViewProps> = ({ patients, loading, currency
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input type="text" placeholder="Search name, phone..." className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64"/>
         </div>
+        <button 
+          onClick={handleDownloadPDF}
+          disabled={patients.length === 0}
+          className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <FileDown className="w-4 h-4" /> Export PDF
+        </button>
         <button onClick={onAddPatient} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors">
           <Plus className="w-4 h-4" /> Add Patient
         </button>
@@ -44,7 +74,7 @@ const PatientsView: React.FC<PatientsViewProps> = ({ patients, loading, currency
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {patients.map((patient) => (
+          {paginatedPatients.map((patient) => (
             <tr key={patient.id} className="hover:bg-indigo-50/30 transition-colors group cursor-pointer" onClick={() => onSelectPatient(patient)}>
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="flex items-center">
@@ -82,7 +112,18 @@ const PatientsView: React.FC<PatientsViewProps> = ({ patients, loading, currency
         </tbody>
       </table>
     )}
+    {!loading && patients.length > 0 && (
+      <Pagination
+        totalItems={patients.length}
+        itemsPerPage={itemsPerPage}
+        currentPage={currentPage}
+        onPageChange={setCurrentPage}
+        showAll={showAll}
+        onToggleShowAll={() => setShowAll(!showAll)}
+      />
+    )}
   </div>
-);
+  );
+};
 
 export default PatientsView;

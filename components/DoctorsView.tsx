@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, Clock, Loader2, User } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Plus, Edit2, Trash2, Clock, Loader2, User, FileDown } from 'lucide-react';
 import { Doctor, DoctorSchedule } from '../types';
+import { exportDoctorsToPDF } from '../utils/pdfExport';
+import Pagination from './Pagination';
 
 interface DoctorsViewProps {
   doctors: Doctor[];
@@ -17,7 +19,26 @@ const DoctorsView: React.FC<DoctorsViewProps> = ({
   onEdit,
   onDelete
 }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showAll, setShowAll] = useState(false);
+  const itemsPerPage = 5;
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  // Paginated data
+  const paginatedDoctors = useMemo(() => {
+    if (showAll) return doctors;
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return doctors.slice(startIndex, startIndex + itemsPerPage);
+  }, [doctors, currentPage, showAll]);
+
+  // Reset to first page when doctors change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [doctors]);
+
+  const handleDownloadPDF = () => {
+    exportDoctorsToPDF(doctors);
+  };
 
   const formatSchedule = (schedules: DoctorSchedule[]) => {
     if (schedules.length === 0) return 'No schedule set';
@@ -41,12 +62,21 @@ const DoctorsView: React.FC<DoctorsViewProps> = ({
           <h2 className="text-xl font-bold text-gray-800">Doctors & Schedules</h2>
           <p className="text-sm text-gray-500">Manage doctors and their working schedules</p>
         </div>
-        <button
-          onClick={onAdd}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" /> Add Doctor
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={handleDownloadPDF}
+            disabled={doctors.length === 0}
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <FileDown className="w-4 h-4" /> Export PDF
+          </button>
+          <button
+            onClick={onAdd}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Add Doctor
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -60,7 +90,7 @@ const DoctorsView: React.FC<DoctorsViewProps> = ({
       ) : (
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {doctors.map((doctor) => (
+            {paginatedDoctors.map((doctor) => (
               <div
                 key={doctor.id}
                 className="border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow"
@@ -129,6 +159,16 @@ const DoctorsView: React.FC<DoctorsViewProps> = ({
             ))}
           </div>
         </div>
+      )}
+      {!loading && doctors.length > 0 && (
+        <Pagination
+          totalItems={doctors.length}
+          itemsPerPage={itemsPerPage}
+          currentPage={currentPage}
+          onPageChange={setCurrentPage}
+          showAll={showAll}
+          onToggleShowAll={() => setShowAll(!showAll)}
+        />
       )}
     </div>
   );

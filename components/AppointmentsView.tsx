@@ -1,6 +1,8 @@
-import React from 'react';
-import { Calendar, Plus, Loader2, Edit2, Trash2, Clock, User, FileText } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Calendar, Plus, Loader2, Edit2, Trash2, Clock, User, FileText, FileDown } from 'lucide-react';
 import { Appointment } from '../types';
+import { exportAppointmentsToPDF } from '../utils/pdfExport';
+import Pagination from './Pagination';
 
 interface AppointmentsViewProps {
   appointments: Appointment[];
@@ -19,6 +21,12 @@ const AppointmentsView: React.FC<AppointmentsViewProps> = ({
   onDeleteAppointment,
   onUpdateStatus
 }) => {
+  const [upcomingPage, setUpcomingPage] = useState(1);
+  const [pastPage, setPastPage] = useState(1);
+  const [showAllUpcoming, setShowAllUpcoming] = useState(false);
+  const [showAllPast, setShowAllPast] = useState(false);
+  const itemsPerPage = 5;
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
@@ -71,6 +79,23 @@ const AppointmentsView: React.FC<AppointmentsViewProps> = ({
     return b.time.localeCompare(a.time);
   });
 
+  // Paginated data
+  const paginatedUpcoming = useMemo(() => {
+    if (showAllUpcoming) return upcomingAppointments;
+    const startIndex = (upcomingPage - 1) * itemsPerPage;
+    return upcomingAppointments.slice(startIndex, startIndex + itemsPerPage);
+  }, [upcomingAppointments, upcomingPage, showAllUpcoming]);
+
+  const paginatedPast = useMemo(() => {
+    if (showAllPast) return pastAppointments;
+    const startIndex = (pastPage - 1) * itemsPerPage;
+    return pastAppointments.slice(startIndex, startIndex + itemsPerPage);
+  }, [pastAppointments, pastPage, showAllPast]);
+
+  const handleDownloadPDF = () => {
+    exportAppointmentsToPDF(appointments);
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden animate-fade-in">
       <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-10">
@@ -78,12 +103,21 @@ const AppointmentsView: React.FC<AppointmentsViewProps> = ({
           <h2 className="text-xl font-bold text-gray-800">Appointment Schedule</h2>
           <p className="text-sm text-gray-500">Manage patient appointments and scheduling</p>
         </div>
-        <button
-          onClick={onAddAppointment}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" /> New Appointment
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={handleDownloadPDF}
+            disabled={appointments.length === 0}
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <FileDown className="w-4 h-4" /> Export PDF
+          </button>
+          <button
+            onClick={onAddAppointment}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" /> New Appointment
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -104,7 +138,7 @@ const AppointmentsView: React.FC<AppointmentsViewProps> = ({
               </div>
             ) : (
               <div className="space-y-3">
-                {upcomingAppointments.map((appointment) => (
+                {paginatedUpcoming.map((appointment) => (
                   <div
                     key={appointment.id}
                     className="flex items-center justify-between p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
@@ -183,6 +217,16 @@ const AppointmentsView: React.FC<AppointmentsViewProps> = ({
                 ))}
               </div>
             )}
+            {upcomingAppointments.length > 0 && (
+              <Pagination
+                totalItems={upcomingAppointments.length}
+                itemsPerPage={itemsPerPage}
+                currentPage={upcomingPage}
+                onPageChange={setUpcomingPage}
+                showAll={showAllUpcoming}
+                onToggleShowAll={() => setShowAllUpcoming(!showAllUpcoming)}
+              />
+            )}
           </div>
 
           {/* Past Appointments */}
@@ -197,7 +241,7 @@ const AppointmentsView: React.FC<AppointmentsViewProps> = ({
               </div>
             ) : (
               <div className="space-y-3">
-                {pastAppointments.map((appointment) => (
+                {paginatedPast.map((appointment) => (
                   <div
                     key={appointment.id}
                     className="flex items-center justify-between p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors opacity-75"
@@ -269,6 +313,16 @@ const AppointmentsView: React.FC<AppointmentsViewProps> = ({
                   </div>
                 ))}
               </div>
+            )}
+            {pastAppointments.length > 0 && (
+              <Pagination
+                totalItems={pastAppointments.length}
+                itemsPerPage={itemsPerPage}
+                currentPage={pastPage}
+                onPageChange={setPastPage}
+                showAll={showAllPast}
+                onToggleShowAll={() => setShowAllPast(!showAllPast)}
+              />
             )}
           </div>
         </div>
