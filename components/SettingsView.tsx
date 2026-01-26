@@ -7,6 +7,8 @@ interface SettingsViewProps {
   currency: 'USD' | 'MMK';
   onCurrencyChange: (currency: 'USD' | 'MMK') => void;
   locations: Location[];
+  currentLocationId: string;
+  onLocationChange: (locationId: string) => void;
   onAddLocation: (loc: Partial<Location>) => void;
   loyaltyRules: LoyaltyRule[];
   onUpdateLoyaltyRule: (id: string, data: Partial<LoyaltyRule>) => void;
@@ -20,6 +22,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({
   currency, 
   onCurrencyChange, 
   locations, 
+  currentLocationId,
+  onLocationChange,
   onAddLocation, 
   loyaltyRules,
   onUpdateLoyaltyRule,
@@ -153,6 +157,30 @@ const SettingsView: React.FC<SettingsViewProps> = ({
               >
                 <Plus size={14} /> Add Location
               </button>
+            </div>
+            
+            {/* Location Switcher */}
+            <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
+                <MapPin size={10} /> Active Location
+              </p>
+              <select
+                value={currentLocationId || ''}
+                onChange={(e) => {
+                  const locId = e.target.value;
+                  if (locId) {
+                    onLocationChange(locId);
+                  }
+                }}
+                className="w-full bg-white text-gray-800 text-sm border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              >
+                <option value="">Select a location</option>
+                {locations.map(loc => (
+                  <option key={loc.id} value={loc.id}>
+                    {loc.name} {currentLocationId === loc.id ? '(Current)' : ''}
+                  </option>
+                ))}
+              </select>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

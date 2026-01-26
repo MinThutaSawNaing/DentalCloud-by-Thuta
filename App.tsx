@@ -872,26 +872,6 @@ const App: React.FC = () => {
         <div className="p-8 flex items-center justify-center flex-shrink-0">
           <span className="text-xl font-black text-white tracking-tight text-center">DentalCloud<span className="text-indigo-400">Pro</span></span>
         </div>
-
-        {/* Location Switcher */}
-        {(!currentUser || isAdmin) && (
-          <div className="px-6 mb-6">
-            <div className="p-4 bg-gray-800/50 rounded-2xl border border-gray-700">
-              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
-                <MapPin size={10} /> Active Location
-              </p>
-              <select
-                value={currentLocationId}
-                onChange={(e) => handleLocationChange(e.target.value)}
-                className="w-full bg-gray-900 text-gray-200 text-xs border-none rounded-lg p-2 focus:ring-1 focus:ring-indigo-500"
-              >
-                {locations.map(loc => (
-                  <option key={loc.id} value={loc.id}>{loc.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        )}
         
         <nav className="mt-2 px-6 space-y-2 flex-1 min-h-0 overflow-y-auto overscroll-contain pb-4">
           <NavItem icon={<LayoutDashboard size={18} />} label="Overview" active={currentView === 'dashboard'} onClick={() => { setCurrentView('dashboard'); setIsMobileMenuOpen(false); }} />
@@ -968,6 +948,8 @@ const App: React.FC = () => {
                 currency={currency} 
                 onCurrencyChange={handleCurrencyChange} 
                 locations={locations} 
+                currentLocationId={currentLocationId}
+                onLocationChange={handleLocationChange}
                 onAddLocation={handleCreateLocation} 
                 loyaltyRules={loyaltyRules} 
                 onUpdateLoyaltyRule={handleUpdateLoyaltyRule} 
