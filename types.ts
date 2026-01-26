@@ -131,9 +131,9 @@ export interface LoyaltyRule {
   id: string;
   location_id: string;
   name: string;
-  event_type: 'TREATMENT' | 'PURCHASE' | 'VISIT';
-  points_per_unit: number; // e.g. 1 point per 1000 MMK
-  min_amount?: number;
+  event_type: 'TREATMENT' | 'PURCHASE' | 'VISIT' | 'REDEEM';
+  points_per_unit: number; // For earned: points per unit of currency. For redeem: units of currency per 1 point.
+  min_amount?: number; // Minimum amount to earn or minimum points to redeem
   active: boolean;
 }
 

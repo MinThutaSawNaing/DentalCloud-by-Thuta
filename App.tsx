@@ -962,6 +962,7 @@ const App: React.FC = () => {
                 onToggleFlatRate={setUseFlatRate}
                 onUndoTreatment={handleUndoTreatment}
                 onRedeemPoints={handleRedeemPoints}
+                loyaltyRules={loyaltyRules}
                 loyaltyTransactions={loyaltyTransactions}
             />}
           </Suspense>

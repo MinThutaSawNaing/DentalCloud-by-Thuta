@@ -210,7 +210,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                       </div>
                       <p className="text-xs text-gray-600 mt-1">Event: <span className="font-semibold">{rule.event_type}</span></p>
                       <p className="text-xs text-amber-700 font-bold mt-1">
-                        Rate: {rule.points_per_unit * 1000} Points / 1000 MMK
+                        {rule.event_type === 'REDEEM' 
+                          ? `Rate: 1 Point = ${rule.points_per_unit} units discount (Min ${rule.min_amount || 0} points)`
+                          : `Rate: ${rule.points_per_unit * 1000} Points / 1000 units`
+                        }
                       </p>
                     </div>
                     {isAdmin && (
@@ -297,24 +300,46 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                 value={newRule.event_type}
                 onChange={e => setNewRule({...newRule, event_type: e.target.value as any})}
               >
-                <option value="TREATMENT">Clinical Treatment</option>
-                <option value="PURCHASE">Medicine Purchase</option>
-                <option value="VISIT">Clinic Visit</option>
+                <option value="TREATMENT">Clinical Treatment (Earn)</option>
+                <option value="PURCHASE">Medicine Purchase (Earn)</option>
+                <option value="VISIT">Clinic Visit (Earn)</option>
+                <option value="REDEEM">Points Redemption (Spend)</option>
               </select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
                <div>
-                 <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">Points per 1000 MMK</label>
+                 <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">
+                   {newRule.event_type === 'REDEEM' ? 'Currency Value per Point' : 'Points per 1000 MMK'}
+                 </label>
                  <input 
                    type="number" 
-                   step="0.1"
+                   step={newRule.event_type === 'REDEEM' ? "1" : "0.1"}
                    className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500"
-                   value={(newRule.points_per_unit || 0) * 1000}
-                   onChange={e => setNewRule({...newRule, points_per_unit: parseFloat(e.target.value) / 1000})}
+                   value={newRule.event_type === 'REDEEM' ? (newRule.points_per_unit || 0) : (newRule.points_per_unit || 0) * 1000}
+                   onChange={e => {
+                     const val = parseFloat(e.target.value);
+                     setNewRule({
+                       ...newRule, 
+                       points_per_unit: newRule.event_type === 'REDEEM' ? val : val / 1000
+                     });
+                   }}
                  />
                </div>
-               <div className="flex items-center mt-6">
+               <div>
+                 <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">
+                   {newRule.event_type === 'REDEEM' ? 'Min Points to Redeem' : 'Min Amount to Earn'}
+                 </label>
+                 <input 
+                   type="number" 
+                   className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500"
+                   value={newRule.min_amount || 0}
+                   onChange={e => setNewRule({...newRule, min_amount: parseFloat(e.target.value)})}
+                 />
+               </div>
+            </div>
+
+            <div className="flex items-center mt-2">
                  <label className="flex items-center gap-2 cursor-pointer">
                    <input 
                      type="checkbox"
@@ -325,7 +350,6 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                    <span className="text-sm font-medium text-gray-700">Active Rule</span>
                  </label>
                </div>
-            </div>
 
             <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-600/20">
               {editingRuleId ? "Update Rule" : "Create Rule"}

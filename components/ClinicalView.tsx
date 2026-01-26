@@ -1,7 +1,7 @@
 import React from 'react';
 import { User, X, Upload, Trash2, FileText, Receipt as ReceiptIcon, Package, RotateCcw, Award, Zap } from 'lucide-react';
 import { ToothSelector } from './ToothSelector';
-import { Patient, TreatmentType, ClinicalRecord, PatientFile, LoyaltyTransaction } from '../types';
+import { Patient, TreatmentType, ClinicalRecord, PatientFile, LoyaltyTransaction, LoyaltyRule } from '../types';
 import { formatCurrency, getCurrencySymbol, Currency } from '../utils/currency';
 
 interface ClinicalViewProps {
@@ -26,6 +26,7 @@ interface ClinicalViewProps {
   onToggleFlatRate: (value: boolean) => void;
   onUndoTreatment?: (record: ClinicalRecord) => void;
   onRedeemPoints?: (points: number, amount: number) => void;
+  loyaltyRules?: LoyaltyRule[];
   loyaltyTransactions?: LoyaltyTransaction[];
 }
 
@@ -51,10 +52,21 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
   onToggleFlatRate,
   onUndoTreatment,
   onRedeemPoints,
+  loyaltyRules = [],
   loyaltyTransactions = []
 }) => {
   const currencySymbol = getCurrencySymbol(currency);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Get redemption rule
+  const redeemRule = React.useMemo(() => {
+    return loyaltyRules.find(r => r.event_type === 'REDEEM' && r.active);
+  }, [loyaltyRules]);
+
+  const redemptionRate = redeemRule ? redeemRule.points_per_unit : 1; // Default 1 MMK per point
+  const minRedeemPoints = redeemRule ? (redeemRule.min_amount || 0) : 500;
+  
+  const canRedeem = (selectedPatient?.loyalty_points || 0) >= minRedeemPoints;
 
   const formatBytes = (bytes: number) => {
     if (!bytes) return '0 B';
@@ -243,11 +255,11 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
                     <p className="text-3xl font-black text-amber-700">
                       {selectedPatient.loyalty_points || 0} <span className="text-sm font-bold">Points</span>
                     </p>
-                    {onRedeemPoints && (selectedPatient.loyalty_points || 0) >= 500 && (
+                    {onRedeemPoints && canRedeem && (
                       <button 
                         onClick={() => {
-                          const points = Math.min(selectedPatient.loyalty_points, 5000);
-                          const amount = points; // 1:1 redemption
+                          const points = Math.min(selectedPatient.loyalty_points, 5000); // Cap at 5000 points per redemption
+                          const amount = points * redemptionRate;
                           if(confirm(`Redeem ${points} points for ${formatCurrency(amount, currency)} discount?`)) {
                             onRedeemPoints(points, amount);
                           }
@@ -258,7 +270,9 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
                       </button>
                     )}
                  </div>
-                 <p className="text-[10px] text-amber-600/70 mt-1">1 Point = 1 MMK discount (Min 500 to redeem)</p>
+                 <p className="text-[10px] text-amber-600/70 mt-1">
+                   1 Point = {redemptionRate} {currency} discount (Min {minRedeemPoints} points to redeem)
+                 </p>
                </div>
 
                <div className={`p-4 rounded-xl border ${selectedPatient.medicalHistory ? 'bg-orange-50 border-orange-100' : 'bg-gray-50 border-gray-100'}`}>

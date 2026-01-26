@@ -336,9 +336,14 @@ export const api = {
       // Calculate points based on active rules
       const rules = await api.loyalty.getRules(data.location_id);
       const treatmentRule = rules.find(r => r.event_type === 'TREATMENT' && r.active);
-      const pointsPerUnit = treatmentRule ? treatmentRule.points_per_unit : 0.001; // Default: 1 point per 1000 MMK
+      const pointsPerUnit = treatmentRule ? treatmentRule.points_per_unit : 0.001;
+      const minAmount = treatmentRule?.min_amount || 0;
       
-      const earnedPoints = Math.floor(data.cost * pointsPerUnit);
+      let earnedPoints = 0;
+      if (data.cost >= minAmount) {
+        earnedPoints = Math.floor(data.cost * pointsPerUnit);
+      }
+      
       const newPoints = (patient?.loyalty_points || 0) + earnedPoints;
 
       const { error: updateError } = await supabase
@@ -1074,9 +1079,14 @@ export const api = {
         // Calculate points based on active rules
         const rules = await api.loyalty.getRules(locationId);
         const purchaseRule = rules.find(r => r.event_type === 'PURCHASE' && r.active);
-        const pointsPerUnit = purchaseRule ? purchaseRule.points_per_unit : 0.001; // Default: 1 point per 1000 MMK
+        const pointsPerUnit = purchaseRule ? purchaseRule.points_per_unit : 0.001;
+        const minAmount = purchaseRule?.min_amount || 0;
         
-        const earnedPoints = Math.floor(totalPrice * pointsPerUnit);
+        let earnedPoints = 0;
+        if (totalPrice >= minAmount) {
+          earnedPoints = Math.floor(totalPrice * pointsPerUnit);
+        }
+        
         const newPoints = (patient.loyalty_points || 0) + earnedPoints;
         
         await supabase
