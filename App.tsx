@@ -84,6 +84,7 @@ const App: React.FC = () => {
   const [loyaltyRules, setLoyaltyRules] = useState<LoyaltyRule[]>([]);
   const [loyaltyTransactions, setLoyaltyTransactions] = useState<LoyaltyTransaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   
@@ -346,6 +347,8 @@ const App: React.FC = () => {
 
   const handleCreatePatient = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       await api.patients.create({ ...newPatientData, location_id: currentLocationId });
       setShowPatientModal(false);
@@ -353,11 +356,15 @@ const App: React.FC = () => {
       setNewPatientData({ name: '', email: '', phone: '', medicalHistory: '' });
     } catch (err: any) {
       alert(err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleCreateAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       if (editingAppointment) {
         await api.appointments.update(editingAppointment.id, newAppointmentData);
@@ -371,6 +378,8 @@ const App: React.FC = () => {
       setAvailableTimes([]);
     } catch (err: any) {
       alert(err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -409,6 +418,8 @@ const App: React.FC = () => {
 
   const handleCreateDoctor = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     
     // Validate schedules before submitting
     const schedules = (newDoctorData.schedules || []).filter(sched => {
@@ -450,6 +461,8 @@ const App: React.FC = () => {
       setNewDoctorData({ name: '', email: '', phone: '', specialization: '', schedules: [] });
     } catch (err: any) {
       alert(err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -483,12 +496,15 @@ const App: React.FC = () => {
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       if (editingUser) {
         await api.users.update(editingUser.id, newUserData);
       } else {
         if (!newUserData.password || newUserData.password === '') {
           alert('Password is required');
+          setIsSubmitting(false);
           return;
         }
         await api.users.create(newUserData);
@@ -499,6 +515,8 @@ const App: React.FC = () => {
       fetchUsers();
     } catch (err: any) {
       alert(err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -513,6 +531,8 @@ const App: React.FC = () => {
 
   const handleCreateMedicine = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       if (editingMedicine) {
         await api.medicines.update(editingMedicine.id, newMedicineData);
@@ -525,6 +545,8 @@ const App: React.FC = () => {
       fetchMedicines();
     } catch (err: any) {
       alert(err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -588,6 +610,8 @@ const App: React.FC = () => {
 
   const handleCreateTreatmentType = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       if (editingTreatmentType) {
         await api.treatments.updateType(editingTreatmentType.id, newTreatmentTypeData);
@@ -601,6 +625,8 @@ const App: React.FC = () => {
       setNewTreatmentTypeData({ name: '', cost: 0, category: 'Preventative' });
     } catch (err: any) {
       alert(err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -956,7 +982,13 @@ const App: React.FC = () => {
               <textarea className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" rows={4}
                 value={newPatientData.medicalHistory} onChange={e => setNewPatientData({...newPatientData, medicalHistory: e.target.value})} />
             </div>
-            <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-600/20">Finalize Registration</button>
+            <button 
+              type="submit" 
+              disabled={isSubmitting}
+              className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? 'Processing...' : 'Finalize Registration'}
+            </button>
           </form>
         </Modal>
       )}
