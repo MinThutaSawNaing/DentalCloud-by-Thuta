@@ -1261,6 +1261,29 @@ export const api = {
         .single();
       if (error) throw new Error(error.message);
       return result;
+    },
+    deleteRule: async (id: string): Promise<void> => {
+      const { error } = await supabase
+        .from('loyalty_rules')
+        .delete()
+        .eq('id', id);
+      if (error) throw new Error(error.message);
+    },
+    resetAllPoints: async (): Promise<void> => {
+      // 1. Reset points on all patients
+      const { error: patientError } = await supabase
+        .from('patients')
+        .update({ loyalty_points: 0 });
+      
+      if (patientError) throw new Error(patientError.message);
+
+      // 2. Clear transaction history
+      const { error: txError } = await supabase
+        .from('loyalty_transactions')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+
+      if (txError) throw new Error(txError.message);
     }
   }
 };

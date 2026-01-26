@@ -597,6 +597,32 @@ const App: React.FC = () => {
     }
   };
 
+  const handleDeleteLoyaltyRule = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this loyalty rule?')) return;
+    try {
+      await api.loyalty.deleteRule(id);
+      const updated = await api.loyalty.getRules(currentLocationId);
+      setLoyaltyRules(updated);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleResetAllLoyaltyPoints = async () => {
+    if (!confirm('CRITICAL ACTION: This will permanently reset ALL loyalty points for ALL patients across the entire system. Transaction history will also be cleared. Continue?')) return;
+    
+    setLoading(true);
+    try {
+      await api.loyalty.resetAllPoints();
+      fetchInitialData();
+      alert('System-wide loyalty reset successful.');
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleRedeemPoints = async (points: number, amount: number) => {
     if (!selectedPatient) return;
     try {
@@ -938,7 +964,18 @@ const App: React.FC = () => {
             {currentView === 'records' && <RecordsView records={globalRecords} loading={loading} onRefresh={fetchGlobalRecords} onDeleteAll={handleDeleteAllRecords} currency={currency} />}
             {currentView === 'inventory' && <InventoryView medicines={medicines} loading={loading} currency={currency} onAdd={() => {setEditingMedicine(null); setNewMedicineData({ name: '', description: '', unit: 'pack', price: 0, stock: 0, min_stock: 0, category: '' }); setShowMedicineModal(true)}} onEdit={(med) => {setEditingMedicine(med); setNewMedicineData(med); setShowMedicineModal(true)}} onDelete={handleDeleteMedicine} />}
             {currentView === 'users' && isAdmin && <UsersView users={users} loading={loading} isAdmin={isAdmin} onAdd={() => {setEditingUser(null); setNewUserData({ username: '', password: '', role: 'normal' }); setShowUserModal(true)}} onEdit={(user) => {setEditingUser(user); setNewUserData({ username: user.username, password: '', role: user.role }); setShowUserModal(true)}} onDelete={handleDeleteUser} />}
-            {currentView === 'settings' && <SettingsView currency={currency} onCurrencyChange={handleCurrencyChange} locations={locations} onAddLocation={handleCreateLocation} loyaltyRules={loyaltyRules} onUpdateLoyaltyRule={handleUpdateLoyaltyRule} onCreateLoyaltyRule={handleCreateLoyaltyRule} isAdmin={isAdmin} />}
+            {currentView === 'settings' && <SettingsView 
+                currency={currency} 
+                onCurrencyChange={handleCurrencyChange} 
+                locations={locations} 
+                onAddLocation={handleCreateLocation} 
+                loyaltyRules={loyaltyRules} 
+                onUpdateLoyaltyRule={handleUpdateLoyaltyRule} 
+                onCreateLoyaltyRule={handleCreateLoyaltyRule} 
+                onDeleteLoyaltyRule={handleDeleteLoyaltyRule}
+                onResetAllLoyaltyPoints={handleResetAllLoyaltyPoints}
+                isAdmin={isAdmin} 
+            />}
             {currentView === 'ai-assistant' && <AIAssistantView patients={patients} treatmentRecords={globalRecords} />}
             {currentView === 'finance' && <ClinicalView 
                 selectedPatient={selectedPatient} 

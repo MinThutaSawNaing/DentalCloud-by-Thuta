@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings as SettingsIcon, DollarSign, MapPin, Award, Plus, Trash2 } from 'lucide-react';
+import { Settings as SettingsIcon, DollarSign, MapPin, Award, Plus, Trash2, RotateCcw } from 'lucide-react';
 import { Location, LoyaltyRule } from '../types';
 import { Modal, Input } from './Shared';
 
@@ -11,6 +11,8 @@ interface SettingsViewProps {
   loyaltyRules: LoyaltyRule[];
   onUpdateLoyaltyRule: (id: string, data: Partial<LoyaltyRule>) => void;
   onCreateLoyaltyRule: (data: Partial<LoyaltyRule>) => void;
+  onDeleteLoyaltyRule?: (id: string) => void;
+  onResetAllLoyaltyPoints?: () => void;
   isAdmin: boolean;
 }
 
@@ -22,6 +24,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({
   loyaltyRules,
   onUpdateLoyaltyRule,
   onCreateLoyaltyRule,
+  onDeleteLoyaltyRule,
+  onResetAllLoyaltyPoints,
   isAdmin 
 }) => {
   const [showLocModal, setShowLocModal] = useState(false);
@@ -217,16 +221,27 @@ const SettingsView: React.FC<SettingsViewProps> = ({
                       </p>
                     </div>
                     {isAdmin && (
-                      <button 
-                        onClick={() => {
-                          setEditingRuleId(rule.id);
-                          setNewRule(rule);
-                          setShowRuleModal(true);
-                        }}
-                        className="p-1.5 hover:bg-amber-100 rounded-lg text-amber-700 transition-colors"
-                      >
-                        <SettingsIcon size={14} />
-                      </button>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => {
+                            setEditingRuleId(rule.id);
+                            setNewRule(rule);
+                            setShowRuleModal(true);
+                          }}
+                          className="p-1.5 hover:bg-amber-100 rounded-lg text-amber-700 transition-colors"
+                        >
+                          <SettingsIcon size={14} />
+                        </button>
+                        {onDeleteLoyaltyRule && (
+                          <button 
+                            onClick={() => onDeleteLoyaltyRule(rule.id)}
+                            className="p-1.5 hover:bg-red-100 rounded-lg text-red-600 transition-colors"
+                            title="Delete Rule"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 ))}
@@ -234,6 +249,26 @@ const SettingsView: React.FC<SettingsViewProps> = ({
             )}
           </div>
         </div>
+
+        {/* System Operations */}
+        {isAdmin && onResetAllLoyaltyPoints && (
+          <div className="border border-red-200 rounded-xl p-6 bg-red-50/30">
+            <div className="flex items-center gap-3 mb-4">
+              <RotateCcw className="w-5 h-5 text-red-600" />
+              <h3 className="text-lg font-semibold text-red-800">Critical Operations</h3>
+            </div>
+            <p className="text-sm text-red-700 mb-6">
+              These actions are irreversible and affect the entire system. Please proceed with caution.
+            </p>
+            
+            <button 
+              onClick={onResetAllLoyaltyPoints}
+              className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all shadow-lg shadow-red-600/20"
+            >
+              <RotateCcw size={18} /> Restart All System Points
+            </button>
+          </div>
+        )}
 
         {/* About Us Section */}
         <div className="border border-gray-200 rounded-xl p-6">
