@@ -104,7 +104,7 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
         </div>
         
         <div className="flex justify-start md:justify-center w-full overflow-x-auto pb-4 custom-scrollbar">
-          <div className="min-w-[320px] md:min-w-0">
+          <div className="min-w-[400px] md:min-w-[600px] max-w-full">
             <ToothSelector 
               selectedTeeth={selectedTeeth} 
               onToggleTooth={onToggleTooth} 
