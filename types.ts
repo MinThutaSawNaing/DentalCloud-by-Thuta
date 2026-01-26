@@ -1,10 +1,21 @@
+export interface Location {
+  id: string;
+  name: string;
+  address: string;
+  phone: string;
+  email?: string;
+  created_at?: string;
+}
+
 export interface Patient {
   id: string;
+  location_id: string;
   name: string;
   email: string;
   phone: string;
   lastVisit?: string;
   balance: number;
+  loyalty_points: number;
   medicalHistory?: string;
   created_at?: string;
 }
@@ -20,6 +31,7 @@ export interface PatientFile {
 
 export interface TreatmentType {
   id: string; // Database ID
+  location_id: string;
   name: string; // Display name (e.g., "Root Canal")
   cost: number;
   category: 'Restorative' | 'Cosmetic' | 'Preventative' | 'Surgery' | 'Orthodontics';
@@ -27,6 +39,7 @@ export interface TreatmentType {
 
 export interface ClinicalRecord {
   id: string;
+  location_id: string;
   patient_id: string;
   patient_name?: string; // Joined field for global view
   teeth: number[];
@@ -53,6 +66,7 @@ export interface DoctorSchedule {
 
 export interface Doctor {
   id: string;
+  location_id: string;
   name: string;
   email?: string;
   phone?: string;
@@ -63,6 +77,7 @@ export interface Doctor {
 
 export interface Appointment {
   id: string;
+  location_id: string;
   patient_id: string;
   patient_name?: string;
   doctor_id?: string;
@@ -76,6 +91,7 @@ export interface Appointment {
 
 export interface User {
   id: string;
+  location_id: string | null; // null for global admins
   username: string;
   password?: string; // Only for creation/update, not returned in queries
   role: 'admin' | 'normal';
@@ -85,6 +101,7 @@ export interface User {
 
 export interface Medicine {
   id: string;
+  location_id: string;
   name: string;
   description?: string;
   unit: string; // e.g., "pack", "bottle", "box"
@@ -98,6 +115,7 @@ export interface Medicine {
 
 export interface MedicineSale {
   id: string;
+  location_id: string;
   patient_id: string;
   patient_name?: string;
   medicine_id: string;
@@ -107,4 +125,24 @@ export interface MedicineSale {
   total_price: number;
   date: string;
   treatment_id?: string; // Optional: link to treatment if sold with treatment
+}
+
+export interface LoyaltyRule {
+  id: string;
+  location_id: string;
+  name: string;
+  event_type: 'TREATMENT' | 'PURCHASE' | 'VISIT';
+  points_per_unit: number; // e.g. 1 point per 1000 MMK
+  min_amount?: number;
+  active: boolean;
+}
+
+export interface LoyaltyTransaction {
+  id: string;
+  patient_id: string;
+  location_id: string;
+  points: number; // positive for earned, negative for redeemed
+  type: 'EARNED' | 'REDEEMED' | 'EXPIRED';
+  description: string;
+  date: string;
 }

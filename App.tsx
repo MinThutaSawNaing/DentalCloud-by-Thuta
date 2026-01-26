@@ -15,7 +15,10 @@ import {
   Shield,
   LogOut,
   Package,
-  Sparkles
+  Sparkles,
+  MapPin,
+  Menu,
+  X
 } from 'lucide-react';
 
 import { Modal, Input, NavItem } from './components/Shared';
@@ -27,8 +30,11 @@ import {
   PatientFile,
   Doctor,
   DoctorSchedule,
-  User,
-  Medicine
+  User, 
+  Medicine, 
+  Location,
+  LoyaltyRule,
+  LoyaltyTransaction
 } from './types';
 import { TREATMENT_CATEGORIES } from './constants';
 import { api } from './services/api';
@@ -60,6 +66,10 @@ const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentUser, setCurrentUser] = useState<string>('');
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [currentLocationId, setCurrentLocationId] = useState<string>(() => {
+    return localStorage.getItem('currentLocationId') || '';
+  });
   
   // -- Data State --
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -71,6 +81,8 @@ const App: React.FC = () => {
   const [patientFiles, setPatientFiles] = useState<PatientFile[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [loyaltyRules, setLoyaltyRules] = useState<LoyaltyRule[]>([]);
+  const [loyaltyTransactions, setLoyaltyTransactions] = useState<LoyaltyTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -110,6 +122,7 @@ const App: React.FC = () => {
   };
   const [sidebarWidth, setSidebarWidth] = useState(256);
   const [isResizing, setIsResizing] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   // -- Form State --
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
@@ -163,6 +176,13 @@ const App: React.FC = () => {
       setIsAuthenticated(true);
       setIsAdmin(session.role === 'admin');
       setCurrentUser(session.username);
+      
+      // If user is restricted to a location, set it
+      if (session.location_id) {
+        setCurrentLocationId(session.location_id);
+        localStorage.setItem('currentLocationId', session.location_id);
+      }
+      
       fetchInitialData();
       fetchUsers();
     }
@@ -225,13 +245,25 @@ const App: React.FC = () => {
         // Don't show error to user, just log it
       });
       
-      const [patData, aptData, docData, typeData, recordsData, medData] = await Promise.all([
-        api.patients.getAll(),
-        api.appointments.getAll(),
-        api.doctors.getAll(),
-        api.treatments.getTypes(),
-        api.treatments.getAllRecords(),
-        api.medicines.getAll()
+      const locData = await api.locations.getAll();
+      setLocations(locData);
+      
+      // If no location selected but locations exist, select first one
+      let locId = currentLocationId;
+      if (!locId && locData.length > 0) {
+        locId = locData[0].id;
+        setCurrentLocationId(locId);
+        localStorage.setItem('currentLocationId', locId);
+      }
+      
+      const [patData, aptData, docData, typeData, recordsData, medData, loyaltyData] = await Promise.all([
+        api.patients.getAll(locId),
+        api.appointments.getAll(locId),
+        api.doctors.getAll(locId),
+        api.treatments.getTypes(locId),
+        api.treatments.getAllRecords(locId),
+        api.medicines.getAll(locId),
+        api.loyalty.getRules(locId)
       ]);
       setPatients(patData);
       setAppointments(aptData);
@@ -239,12 +271,19 @@ const App: React.FC = () => {
       setTreatmentTypes(typeData);
       setGlobalRecords(recordsData);
       setMedicines(medData);
+      setLoyaltyRules(loyaltyData);
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Failed to connect to database. Please check your network.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLocationChange = (locId: string) => {
+    setCurrentLocationId(locId);
+    localStorage.setItem('currentLocationId', locId);
+    fetchInitialData();
   };
 
   useEffect(() => {
@@ -275,6 +314,12 @@ const App: React.FC = () => {
       setTreatmentHistory([]);
     }
     try {
+      const txs = await api.loyalty.getTransactions(patient.id);
+      setLoyaltyTransactions(txs);
+    } catch (e) {
+      setLoyaltyTransactions([]);
+    }
+    try {
       const files = await api.files.list(patient.id);
       setPatientFiles(files);
     } catch (e) {
@@ -302,7 +347,7 @@ const App: React.FC = () => {
   const handleCreatePatient = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.patients.create(newPatientData);
+      await api.patients.create({ ...newPatientData, location_id: currentLocationId });
       setShowPatientModal(false);
       fetchInitialData(); 
       setNewPatientData({ name: '', email: '', phone: '', medicalHistory: '' });
@@ -317,7 +362,7 @@ const App: React.FC = () => {
       if (editingAppointment) {
         await api.appointments.update(editingAppointment.id, newAppointmentData);
       } else {
-        await api.appointments.create(newAppointmentData);
+        await api.appointments.create({ ...newAppointmentData, location_id: currentLocationId });
       }
       setShowAppointmentModal(false);
       fetchInitialData();
@@ -390,6 +435,7 @@ const App: React.FC = () => {
     try {
       const doctorDataToSave = {
         ...newDoctorData,
+        location_id: currentLocationId,
         schedules: schedules
       };
 
@@ -471,7 +517,7 @@ const App: React.FC = () => {
       if (editingMedicine) {
         await api.medicines.update(editingMedicine.id, newMedicineData);
       } else {
-        await api.medicines.create(newMedicineData);
+        await api.medicines.create({ ...newMedicineData, location_id: currentLocationId });
       }
       setShowMedicineModal(false);
       setEditingMedicine(null);
@@ -500,15 +546,55 @@ const App: React.FC = () => {
     }
   };
 
+  const handleCreateLocation = async (locData: Partial<Location>) => {
+    try {
+      await api.locations.create(locData);
+      fetchInitialData();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleUpdateLoyaltyRule = async (id: string, data: Partial<LoyaltyRule>) => {
+    try {
+      await api.loyalty.updateRule(id, data);
+      const updated = await api.loyalty.getRules(currentLocationId);
+      setLoyaltyRules(updated);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleCreateLoyaltyRule = async (data: Partial<LoyaltyRule>) => {
+    try {
+      await api.loyalty.createRule({ ...data, location_id: currentLocationId });
+      const updated = await api.loyalty.getRules(currentLocationId);
+      setLoyaltyRules(updated);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleRedeemPoints = async (points: number, amount: number) => {
+    if (!selectedPatient) return;
+    try {
+      const res = await api.loyalty.redeemPoints(selectedPatient.id, currentLocationId, points, amount);
+      setSelectedPatient({ ...selectedPatient, balance: res.new_balance, loyalty_points: res.new_points });
+      alert(`Redeemed ${points} points for ${amount} MMK discount!`);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
   const handleCreateTreatmentType = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       if (editingTreatmentType) {
         await api.treatments.updateType(editingTreatmentType.id, newTreatmentTypeData);
       } else {
-        await api.treatments.createType(newTreatmentTypeData);
+        await api.treatments.createType({ ...newTreatmentTypeData, location_id: currentLocationId });
       }
-      const updatedTypes = await api.treatments.getTypes();
+      const updatedTypes = await api.treatments.getTypes(currentLocationId);
       setTreatmentTypes(updatedTypes);
       setShowTreatmentTypeModal(false);
       setEditingTreatmentType(null);
@@ -537,6 +623,7 @@ const App: React.FC = () => {
     
     try {
       const res = await api.treatments.record({
+        location_id: currentLocationId,
         patient_id: selectedPatient.id,
         teeth: selectedTeeth,
         description: treatment.name,
@@ -590,7 +677,8 @@ const App: React.FC = () => {
         await api.medicines.sell(
           selectedPatient.id,
           item.medicine.id,
-          item.quantity
+          item.quantity,
+          currentLocationId
         );
       }
 
@@ -704,37 +792,68 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
+    <div className="min-h-screen flex bg-gray-50 flex-col md:flex-row">
+      {/* Mobile Header */}
+      <header className="md:hidden bg-gray-900 text-white p-4 flex items-center justify-between sticky top-0 z-30">
+        <span className="text-lg font-black tracking-tight">DentalCloud<span className="text-indigo-400">Pro</span></span>
+        <button 
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+        >
+          {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </header>
+
       {/* Sidebar Navigation */}
       <aside 
         style={{ width: `${sidebarWidth}px` }}
-        className="bg-gray-900 fixed inset-y-0 left-0 h-screen z-20 hidden md:flex border-r border-gray-800 flex-col overflow-hidden"
+        className={`bg-gray-900 fixed md:sticky inset-y-0 left-0 h-screen z-20 border-r border-gray-800 flex flex-col overflow-hidden transition-transform duration-300 md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
       >
         <div className="p-8 flex items-center justify-center flex-shrink-0">
           <span className="text-xl font-black text-white tracking-tight text-center">DentalCloud<span className="text-indigo-400">Pro</span></span>
         </div>
+
+        {/* Location Switcher */}
+        {(!currentUser || isAdmin) && (
+          <div className="px-6 mb-6">
+            <div className="p-4 bg-gray-800/50 rounded-2xl border border-gray-700">
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
+                <MapPin size={10} /> Active Location
+              </p>
+              <select
+                value={currentLocationId}
+                onChange={(e) => handleLocationChange(e.target.value)}
+                className="w-full bg-gray-900 text-gray-200 text-xs border-none rounded-lg p-2 focus:ring-1 focus:ring-indigo-500"
+              >
+                {locations.map(loc => (
+                  <option key={loc.id} value={loc.id}>{loc.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
         
-        <nav className="mt-8 px-6 space-y-2 flex-1 min-h-0 overflow-y-auto overscroll-contain pb-4">
-          <NavItem icon={<LayoutDashboard size={18} />} label="Overview" active={currentView === 'dashboard'} onClick={() => setCurrentView('dashboard')} />
-          <NavItem icon={<Users size={18} />} label="Patients" active={currentView === 'patients'} onClick={() => setCurrentView('patients')} />
-          <NavItem icon={<Calendar size={18} />} label="Appointments" active={currentView === 'appointments'} onClick={() => setCurrentView('appointments')} />
-          <NavItem icon={<UserCheck size={18} />} label="Doctors" active={currentView === 'doctors'} onClick={() => setCurrentView('doctors')} />
+        <nav className="mt-2 px-6 space-y-2 flex-1 min-h-0 overflow-y-auto overscroll-contain pb-4">
+          <NavItem icon={<LayoutDashboard size={18} />} label="Overview" active={currentView === 'dashboard'} onClick={() => { setCurrentView('dashboard'); setIsMobileMenuOpen(false); }} />
+          <NavItem icon={<Users size={18} />} label="Patients" active={currentView === 'patients'} onClick={() => { setCurrentView('patients'); setIsMobileMenuOpen(false); }} />
+          <NavItem icon={<Calendar size={18} />} label="Appointments" active={currentView === 'appointments'} onClick={() => { setCurrentView('appointments'); setIsMobileMenuOpen(false); }} />
+          <NavItem icon={<UserCheck size={18} />} label="Doctors" active={currentView === 'doctors'} onClick={() => { setCurrentView('doctors'); setIsMobileMenuOpen(false); }} />
           
           <div className="pt-8 pb-2">
              <p className="px-3 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">Operations</p>
-             <NavItem icon={<Stethoscope size={18} />} label="Service Menu" active={currentView === 'treatments'} onClick={() => setCurrentView('treatments')} />
-             <NavItem icon={<ClipboardList size={18} />} label="Audit Log" active={currentView === 'records'} onClick={() => setCurrentView('records')} />
-             <NavItem icon={<CreditCard size={18} />} label="Clinical Focus" active={currentView === 'finance'} onClick={() => setCurrentView('finance')} />
-             <NavItem icon={<Package size={18} />} label="Inventory" active={currentView === 'inventory'} onClick={() => setCurrentView('inventory')} />
-             <NavItem icon={<Sparkles size={18} />} label="AI Assistant" active={currentView === 'ai-assistant'} onClick={() => setCurrentView('ai-assistant')} />
+             <NavItem icon={<Stethoscope size={18} />} label="Service Menu" active={currentView === 'treatments'} onClick={() => { setCurrentView('treatments'); setIsMobileMenuOpen(false); }} />
+             <NavItem icon={<ClipboardList size={18} />} label="Audit Log" active={currentView === 'records'} onClick={() => { setCurrentView('records'); setIsMobileMenuOpen(false); }} />
+             <NavItem icon={<CreditCard size={18} />} label="Clinical Focus" active={currentView === 'finance'} onClick={() => { setCurrentView('finance'); setIsMobileMenuOpen(false); }} />
+             <NavItem icon={<Package size={18} />} label="Inventory" active={currentView === 'inventory'} onClick={() => { setCurrentView('inventory'); setIsMobileMenuOpen(false); }} />
+             <NavItem icon={<Sparkles size={18} />} label="AI Assistant" active={currentView === 'ai-assistant'} onClick={() => { setCurrentView('ai-assistant'); setIsMobileMenuOpen(false); }} />
           </div>
           
           <div className="pt-8 pb-2">
              <p className="px-3 text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">System</p>
              {isAdmin && (
-               <NavItem icon={<Shield size={18} />} label="Users" active={currentView === 'users'} onClick={() => setCurrentView('users')} />
+               <NavItem icon={<Shield size={18} />} label="Users" active={currentView === 'users'} onClick={() => { setCurrentView('users'); setIsMobileMenuOpen(false); }} />
              )}
-             <NavItem icon={<Settings size={18} />} label="Settings" active={currentView === 'settings'} onClick={() => setCurrentView('settings')} />
+             <NavItem icon={<Settings size={18} />} label="Settings" active={currentView === 'settings'} onClick={() => { setCurrentView('settings'); setIsMobileMenuOpen(false); }} />
           </div>
         </nav>
 
@@ -775,8 +894,8 @@ const App: React.FC = () => {
       </aside>
 
       <main 
-        style={{ marginLeft: `${sidebarWidth}px` }}
-        className="flex-1 p-6 md:p-10"
+        style={{ marginLeft: isMobileMenuOpen ? '0' : (window.innerWidth < 768 ? '0' : `${sidebarWidth}px`) }}
+        className="flex-1 p-4 md:p-10"
       >
         <div className="max-w-6xl mx-auto">
           <Suspense fallback={<div className="flex justify-center p-20"><Loader2 className="animate-spin text-indigo-600 w-10 h-10" /></div>}>
@@ -788,7 +907,7 @@ const App: React.FC = () => {
             {currentView === 'records' && <RecordsView records={globalRecords} loading={loading} onRefresh={fetchGlobalRecords} onDeleteAll={handleDeleteAllRecords} currency={currency} />}
             {currentView === 'inventory' && <InventoryView medicines={medicines} loading={loading} currency={currency} onAdd={() => {setEditingMedicine(null); setNewMedicineData({ name: '', description: '', unit: 'pack', price: 0, stock: 0, min_stock: 0, category: '' }); setShowMedicineModal(true)}} onEdit={(med) => {setEditingMedicine(med); setNewMedicineData(med); setShowMedicineModal(true)}} onDelete={handleDeleteMedicine} />}
             {currentView === 'users' && isAdmin && <UsersView users={users} loading={loading} isAdmin={isAdmin} onAdd={() => {setEditingUser(null); setNewUserData({ username: '', password: '', role: 'normal' }); setShowUserModal(true)}} onEdit={(user) => {setEditingUser(user); setNewUserData({ username: user.username, password: '', role: user.role }); setShowUserModal(true)}} onDelete={handleDeleteUser} />}
-            {currentView === 'settings' && <SettingsView currency={currency} onCurrencyChange={handleCurrencyChange} />}
+            {currentView === 'settings' && <SettingsView currency={currency} onCurrencyChange={handleCurrencyChange} locations={locations} onAddLocation={handleCreateLocation} loyaltyRules={loyaltyRules} onUpdateLoyaltyRule={handleUpdateLoyaltyRule} onCreateLoyaltyRule={handleCreateLoyaltyRule} isAdmin={isAdmin} />}
             {currentView === 'ai-assistant' && <AIAssistantView patients={patients} treatmentRecords={globalRecords} />}
             {currentView === 'finance' && <ClinicalView 
                 selectedPatient={selectedPatient} 
@@ -811,6 +930,8 @@ const App: React.FC = () => {
                 onAddMedicines={handleAddMedicines}
                 onToggleFlatRate={setUseFlatRate}
                 onUndoTreatment={handleUndoTreatment}
+                onRedeemPoints={handleRedeemPoints}
+                loyaltyTransactions={loyaltyTransactions}
             />}
           </Suspense>
         </div>
@@ -1082,6 +1203,19 @@ const App: React.FC = () => {
               onChange={(e: any) => setNewUserData({...newUserData, password: e.target.value})} 
               placeholder="Enter password"
             />
+            <div>
+              <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">Assign Location</label>
+              <select 
+                className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500"
+                value={newUserData.location_id || ''} 
+                onChange={(e: any) => setNewUserData({...newUserData, location_id: e.target.value})}
+              >
+                <option value="">All Locations (Global Admin)</option>
+                {locations.map(loc => (
+                  <option key={loc.id} value={loc.id}>{loc.name}</option>
+                ))}
+              </select>
+            </div>
             <div>
               <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">Role</label>
               <select 

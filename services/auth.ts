@@ -15,6 +15,7 @@ export interface AuthSession {
   userId: string;
   username: string;
   role: 'admin' | 'normal';
+  location_id: string | null;
   loginTime: number;
 }
 
@@ -51,6 +52,7 @@ export const auth = {
         userId: 'admin-default',
         username: DEFAULT_ADMIN.username,
         role: 'admin',
+        location_id: null,
         loginTime: Date.now()
       };
       this.setSession(session);
@@ -68,6 +70,7 @@ export const auth = {
         userId: user.id,
         username: user.username,
         role: user.role,
+        location_id: user.location_id || null,
         loginTime: Date.now()
       };
       this.setSession(session);

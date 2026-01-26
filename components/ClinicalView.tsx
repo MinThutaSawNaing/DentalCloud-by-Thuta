@@ -1,7 +1,7 @@
 import React from 'react';
-import { User, X, Upload, Trash2, FileText, Receipt as ReceiptIcon, Package, RotateCcw } from 'lucide-react';
+import { User, X, Upload, Trash2, FileText, Receipt as ReceiptIcon, Package, RotateCcw, Award, Zap } from 'lucide-react';
 import { ToothSelector } from './ToothSelector';
-import { Patient, TreatmentType, ClinicalRecord, PatientFile } from '../types';
+import { Patient, TreatmentType, ClinicalRecord, PatientFile, LoyaltyTransaction } from '../types';
 import { formatCurrency, getCurrencySymbol, Currency } from '../utils/currency';
 
 interface ClinicalViewProps {
@@ -25,6 +25,8 @@ interface ClinicalViewProps {
   onAddMedicines?: () => void;
   onToggleFlatRate: (value: boolean) => void;
   onUndoTreatment?: (record: ClinicalRecord) => void;
+  onRedeemPoints?: (points: number, amount: number) => void;
+  loyaltyTransactions?: LoyaltyTransaction[];
 }
 
 const ClinicalView: React.FC<ClinicalViewProps> = ({
@@ -47,7 +49,9 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
   onGenerateReceipt,
   onAddMedicines,
   onToggleFlatRate,
-  onUndoTreatment
+  onUndoTreatment,
+  onRedeemPoints,
+  loyaltyTransactions = []
 }) => {
   const currencySymbol = getCurrencySymbol(currency);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -87,12 +91,14 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
           </div>
         </div>
         
-        <div className="flex justify-center w-full overflow-hidden">
-          <ToothSelector 
-            selectedTeeth={selectedTeeth} 
-            onToggleTooth={onToggleTooth} 
-            onDeselectAll={onDeselectAll}
-          />
+        <div className="flex justify-start md:justify-center w-full overflow-x-auto pb-4 custom-scrollbar">
+          <div className="min-w-[320px] md:min-w-0">
+            <ToothSelector 
+              selectedTeeth={selectedTeeth} 
+              onToggleTooth={onToggleTooth} 
+              onDeselectAll={onDeselectAll}
+            />
+          </div>
         </div>
         
         {selectedPatient && (
@@ -113,7 +119,7 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
                 </span>
               </label>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                {treatmentTypes.map(t => {
                  const displayCost = useFlatRate 
                    ? t.cost 
@@ -228,6 +234,33 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
                  </div>
                </div>
 
+               <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
+                 <div className="flex justify-between items-center mb-1">
+                   <p className="text-[10px] text-amber-600 uppercase font-bold tracking-wider">Loyalty Rewards</p>
+                   <Award size={14} className="text-amber-600" />
+                 </div>
+                 <div className="flex justify-between items-baseline">
+                    <p className="text-3xl font-black text-amber-700">
+                      {selectedPatient.loyalty_points || 0} <span className="text-sm font-bold">Points</span>
+                    </p>
+                    {onRedeemPoints && (selectedPatient.loyalty_points || 0) >= 500 && (
+                      <button 
+                        onClick={() => {
+                          const points = Math.min(selectedPatient.loyalty_points, 5000);
+                          const amount = points; // 1:1 redemption
+                          if(confirm(`Redeem ${points} points for ${formatCurrency(amount, currency)} discount?`)) {
+                            onRedeemPoints(points, amount);
+                          }
+                        }}
+                        className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1"
+                      >
+                        <Zap size={12} /> Redeem
+                      </button>
+                    )}
+                 </div>
+                 <p className="text-[10px] text-amber-600/70 mt-1">1 Point = 1 MMK discount (Min 500 to redeem)</p>
+               </div>
+
                <div className={`p-4 rounded-xl border ${selectedPatient.medicalHistory ? 'bg-orange-50 border-orange-100' : 'bg-gray-50 border-gray-100'}`}>
                  <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1">Medical Alerts</p>
                  <p className={`text-sm ${selectedPatient.medicalHistory ? 'text-orange-900 font-medium' : 'text-gray-500 italic'}`}>
@@ -258,6 +291,26 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
                  <X size={16} /> Close Patient File
                </button>
              </div>
+
+             {/* Loyalty History */}
+             {loyaltyTransactions.length > 0 && (
+               <div className="mt-6">
+                 <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Recent Points Activity</h4>
+                 <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                   {loyaltyTransactions.slice(0, 5).map(tx => (
+                     <div key={tx.id} className="flex justify-between items-center p-2 rounded-lg bg-gray-50 border border-gray-100">
+                       <div>
+                         <p className="text-[11px] font-bold text-gray-800">{tx.description}</p>
+                         <p className="text-[9px] text-gray-400">{new Date(tx.date).toLocaleDateString()}</p>
+                       </div>
+                       <span className={`text-xs font-black ${tx.points > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                         {tx.points > 0 ? '+' : ''}{tx.points}
+                       </span>
+                     </div>
+                   ))}
+                 </div>
+               </div>
+             )}
           </div>
         ) : (
           <div className="text-center py-12 px-4 border-2 border-dashed border-gray-100 rounded-2xl">

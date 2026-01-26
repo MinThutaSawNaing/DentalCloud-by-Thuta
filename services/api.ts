@@ -1,9 +1,10 @@
 import { supabase } from './supabase';
-import { Patient, Appointment, ClinicalRecord, TreatmentType, PatientFile, Doctor, DoctorSchedule, User, Medicine, MedicineSale } from '../types';
+import { Patient, Appointment, ClinicalRecord, TreatmentType, PatientFile, Doctor, DoctorSchedule, User, Medicine, MedicineSale, Location, LoyaltyRule, LoyaltyTransaction } from '../types';
 
 // Utility: map DB snake_case fields to app camelCase
 const mapPatient = (row: any): Patient => ({
   ...row,
+  loyalty_points: row?.loyalty_points ?? 0,
   medicalHistory: row?.medical_history ?? row?.medicalHistory,
   created_at: row?.created_at
 });
@@ -12,13 +13,44 @@ const mapPatient = (row: any): Patient => ({
 const PATIENT_FILES_BUCKET = 'patient_files';
 
 export const api = {
-  patients: {
-    getAll: async (): Promise<Patient[]> => {
+  locations: {
+    getAll: async (): Promise<Location[]> => {
       try {
         const { data, error } = await supabase
-          .from('patients')
-          .select('id, name, email, phone, balance, medical_history, created_at')
+          .from('locations')
+          .select('*')
           .order('name');
+        if (error) throw error;
+        return data || [];
+      } catch (err) {
+        console.warn("Error fetching locations:", err);
+        return [];
+      }
+    },
+    create: async (data: Partial<Location>): Promise<Location> => {
+      const { data: result, error } = await supabase
+        .from('locations')
+        .insert(data)
+        .select()
+        .single();
+      if (error) throw new Error(error.message);
+      return result;
+    }
+  },
+
+  patients: {
+    getAll: async (locationId?: string): Promise<Patient[]> => {
+      try {
+        let query = supabase
+          .from('patients')
+          .select('id, location_id, name, email, phone, balance, loyalty_points, medical_history, created_at')
+          .order('name');
+        
+        if (locationId) {
+          query = query.eq('location_id', locationId);
+        }
+        
+        const { data, error } = await query;
         
         if (error) throw error;
         return (data || []).map(mapPatient);
@@ -29,10 +61,12 @@ export const api = {
     },
     create: async (data: Partial<Patient>): Promise<Patient> => {
       const payload = {
+        location_id: data.location_id,
         name: data.name,
         email: data.email,
         phone: data.phone,
         balance: data.balance ?? 0,
+        loyalty_points: 0,
         medical_history: data.medicalHistory || null
       };
 
@@ -67,13 +101,18 @@ export const api = {
   },
 
   appointments: {
-    getAll: async (): Promise<Appointment[]> => {
+    getAll: async (locationId?: string): Promise<Appointment[]> => {
       try {
-        // Fetch appointments and join with patients and doctors to get the names
-        const { data, error } = await supabase
+        let query = supabase
           .from('appointments')
           .select('*, patients(name), doctors(name)')
           .order('date');
+
+        if (locationId) {
+          query = query.eq('location_id', locationId);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
 
@@ -89,9 +128,20 @@ export const api = {
       }
     },
     create: async (data: Partial<Appointment>): Promise<Appointment> => {
+      const payload = {
+        location_id: data.location_id,
+        patient_id: data.patient_id,
+        doctor_id: data.doctor_id,
+        date: data.date,
+        time: data.time,
+        type: data.type,
+        status: data.status || 'Scheduled',
+        notes: data.notes
+      };
+
       const { data: result, error } = await supabase
         .from('appointments')
-        .insert(data)
+        .insert(payload)
         .select('*, patients(name), doctors(name)')
         .single();
 
@@ -159,12 +209,18 @@ export const api = {
 
   treatments: {
     // Configuration
-    getTypes: async (): Promise<TreatmentType[]> => {
+    getTypes: async (locationId?: string): Promise<TreatmentType[]> => {
        try {
-         const { data, error } = await supabase
+         let query = supabase
            .from('treatment_types')
            .select('*')
            .order('category', { ascending: true });
+         
+         if (locationId) {
+           query = query.eq('location_id', locationId);
+         }
+
+         const { data, error } = await query;
          
          if (error) throw error;
          return data || [];
@@ -214,13 +270,19 @@ export const api = {
       if (error) throw new Error(error.message);
       return data || [];
     },
-    getAllRecords: async (): Promise<ClinicalRecord[]> => {
+    getAllRecords: async (locationId?: string): Promise<ClinicalRecord[]> => {
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('treatments')
           .select('*, patients(name)')
           .order('date', { ascending: false })
           .limit(50);
+
+        if (locationId) {
+          query = query.eq('location_id', locationId);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
 
@@ -241,9 +303,10 @@ export const api = {
 
       if (error) throw new Error(error.message);
     },
-    record: async (data: { patient_id: string; teeth: number[]; description: string; cost: number }) => {
+    record: async (data: { location_id: string; patient_id: string; teeth: number[]; description: string; cost: number }) => {
       // 1. Insert Treatment Record
       const treatmentData = {
+        location_id: data.location_id,
         patient_id: data.patient_id,
         teeth: data.teeth,
         description: data.description,
@@ -259,24 +322,41 @@ export const api = {
       
       if (insertError) throw new Error(insertError.message);
 
-      // 2. Update Patient Balance (Read -> Calculate -> Write)
-      // Note: In a production environment with high concurrency, this should be a Database Function (RPC)
+      // 2. Update Patient Balance and Points
       const { data: patient, error: fetchError } = await supabase
         .from('patients')
-        .select('balance')
+        .select('balance, loyalty_points')
         .eq('id', data.patient_id)
         .single();
 
       if (fetchError) throw new Error(fetchError.message);
 
       const newBalance = (patient?.balance || 0) + data.cost;
+      
+      // Calculate points based on active rules
+      const rules = await api.loyalty.getRules(data.location_id);
+      const treatmentRule = rules.find(r => r.event_type === 'TREATMENT' && r.active);
+      const pointsPerUnit = treatmentRule ? treatmentRule.points_per_unit : 0.001; // Default: 1 point per 1000 MMK
+      
+      const earnedPoints = Math.floor(data.cost * pointsPerUnit);
+      const newPoints = (patient?.loyalty_points || 0) + earnedPoints;
 
       const { error: updateError } = await supabase
         .from('patients')
-        .update({ balance: newBalance })
+        .update({ balance: newBalance, loyalty_points: newPoints })
         .eq('id', data.patient_id);
 
       if (updateError) throw new Error(updateError.message);
+
+      if (earnedPoints > 0) {
+        await api.loyalty.addTransaction({
+          patient_id: data.patient_id,
+          location_id: data.location_id,
+          points: earnedPoints,
+          type: 'EARNED',
+          description: `Earned from treatment: ${data.description}`
+        });
+      }
       
       return { status: "success", new_balance: newBalance, record: result };
     },
@@ -313,18 +393,25 @@ export const api = {
   },
 
   doctors: {
-    getAll: async (): Promise<Doctor[]> => {
+    getAll: async (locationId?: string): Promise<Doctor[]> => {
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('doctors')
           .select('*, doctor_schedules(*)')
           .order('name');
+        
+        if (locationId) {
+          query = query.eq('location_id', locationId);
+        }
+
+        const { data, error } = await query;
         
         if (error) throw error;
         
         // Transform the data to match Doctor interface
         return (data || []).map((doc: any) => ({
           id: doc.id,
+          location_id: doc.location_id,
           name: doc.name,
           email: doc.email,
           phone: doc.phone,
@@ -347,6 +434,7 @@ export const api = {
       const { data: doctorData, error: doctorError } = await supabase
         .from('doctors')
         .insert({
+          location_id: data.location_id,
           name: data.name,
           email: data.email,
           phone: data.phone,
@@ -397,6 +485,7 @@ export const api = {
 
       return {
         id: completeDoctor.id,
+        location_id: completeDoctor.location_id,
         name: completeDoctor.name,
         email: completeDoctor.email,
         phone: completeDoctor.phone,
@@ -473,6 +562,7 @@ export const api = {
 
       return {
         id: updatedDoctor.id,
+        location_id: updatedDoctor.location_id,
         name: updatedDoctor.name,
         email: updatedDoctor.email,
         phone: updatedDoctor.phone,
@@ -637,12 +727,13 @@ export const api = {
       try {
         const { data, error } = await supabase
           .from('users')
-          .select('id, username, role, created_at, updated_at')
+          .select('id, location_id, username, role, created_at, updated_at')
           .order('created_at', { ascending: false });
         
         if (error) throw error;
         return (data || []).map((u: any) => ({
           id: u.id,
+          location_id: u.location_id,
           username: u.username,
           role: u.role,
           created_at: u.created_at,
@@ -660,7 +751,7 @@ export const api = {
 
         const { data, error } = await supabase
           .from('users')
-          .select('id, username, password, role')
+          .select('id, location_id, username, password, role')
           .eq('username', trimmedUsername);
 
         console.log('Supabase response:', { data, error });
@@ -682,6 +773,7 @@ export const api = {
           console.log('Authentication successful for user:', trimmedUsername);
           return {
             id: user.id,
+            location_id: user.location_id,
             username: user.username,
             role: user.role
           };
@@ -712,6 +804,7 @@ export const api = {
       }
 
       const payload = {
+        location_id: data.location_id,
         username: trimmedUsername,
         password: data.password, // In production, hash this
         role: data.role || 'normal'
@@ -720,12 +813,13 @@ export const api = {
       const { data: result, error } = await supabase
         .from('users')
         .insert(payload)
-        .select('id, username, role, created_at, updated_at')
+        .select('id, location_id, username, role, created_at, updated_at')
         .single();
 
       if (error) throw new Error(error.message);
       return {
         id: result.id,
+        location_id: result.location_id,
         username: result.username,
         role: result.role,
         created_at: result.created_at,
@@ -769,12 +863,13 @@ export const api = {
         .from('users')
         .update(payload)
         .eq('id', id)
-        .select('id, username, role, created_at, updated_at')
+        .select('id, location_id, username, role, created_at, updated_at')
         .single();
 
       if (error) throw new Error(error.message);
       return {
         id: result.id,
+        location_id: result.location_id,
         username: result.username,
         role: result.role,
         created_at: result.created_at,
@@ -792,16 +887,23 @@ export const api = {
   },
 
   medicines: {
-    getAll: async (): Promise<Medicine[]> => {
+    getAll: async (locationId?: string): Promise<Medicine[]> => {
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('medicines')
           .select('*')
           .order('name');
         
+        if (locationId) {
+          query = query.eq('location_id', locationId);
+        }
+
+        const { data, error } = await query;
+        
         if (error) throw error;
         return (data || []).map((m: any) => ({
           id: m.id,
+          location_id: m.location_id,
           name: m.name,
           description: m.description,
           unit: m.unit,
@@ -830,6 +932,7 @@ export const api = {
         
         return {
           id: data.id,
+          location_id: data.location_id,
           name: data.name,
           description: data.description,
           unit: data.unit,
@@ -847,6 +950,7 @@ export const api = {
     },
     create: async (data: Partial<Medicine>): Promise<Medicine> => {
       const payload = {
+        location_id: data.location_id,
         name: data.name,
         description: data.description || null,
         unit: data.unit || 'pack',
@@ -865,6 +969,7 @@ export const api = {
       if (error) throw new Error(error.message);
       return {
         id: result.id,
+        location_id: result.location_id,
         name: result.name,
         description: result.description,
         unit: result.unit,
@@ -899,6 +1004,7 @@ export const api = {
       if (error) throw new Error(error.message);
       return {
         id: result.id,
+        location_id: result.location_id,
         name: result.name,
         description: result.description,
         unit: result.unit,
@@ -918,7 +1024,7 @@ export const api = {
 
       if (error) throw new Error(error.message);
     },
-    sell: async (patientId: string, medicineId: string, quantity: number, treatmentId?: string): Promise<{ sale: MedicineSale; new_stock: number }> => {
+    sell: async (patientId: string, medicineId: string, quantity: number, locationId: string, treatmentId?: string): Promise<{ sale: MedicineSale; new_stock: number }> => {
       // Get medicine details
       const medicine = await api.medicines.getById(medicineId);
       if (!medicine) {
@@ -934,6 +1040,7 @@ export const api = {
 
       // Create sale record
       const saleData = {
+        location_id: locationId,
         patient_id: patientId,
         medicine_id: medicineId,
         quantity: quantity,
@@ -954,24 +1061,44 @@ export const api = {
       // Update stock
       await api.medicines.update(medicineId, { stock: newStock });
 
-      // Update patient balance
+      // Update patient balance and points
       const { data: patient } = await supabase
         .from('patients')
-        .select('balance')
+        .select('balance, loyalty_points')
         .eq('id', patientId)
         .single();
 
       if (patient) {
         const newBalance = (patient.balance || 0) + totalPrice;
+        
+        // Calculate points based on active rules
+        const rules = await api.loyalty.getRules(locationId);
+        const purchaseRule = rules.find(r => r.event_type === 'PURCHASE' && r.active);
+        const pointsPerUnit = purchaseRule ? purchaseRule.points_per_unit : 0.001; // Default: 1 point per 1000 MMK
+        
+        const earnedPoints = Math.floor(totalPrice * pointsPerUnit);
+        const newPoints = (patient.loyalty_points || 0) + earnedPoints;
+        
         await supabase
           .from('patients')
-          .update({ balance: newBalance })
+          .update({ balance: newBalance, loyalty_points: newPoints })
           .eq('id', patientId);
+          
+        if (earnedPoints > 0) {
+          await api.loyalty.addTransaction({
+            patient_id: patientId,
+            location_id: locationId,
+            points: earnedPoints,
+            type: 'EARNED',
+            description: `Earned from medicine purchase: ${medicine.name}`
+          });
+        }
       }
 
       return {
         sale: {
           id: saleResult.id,
+          location_id: saleResult.location_id,
           patient_id: saleResult.patient_id,
           patient_name: saleResult.patients?.name || 'Unknown',
           medicine_id: saleResult.medicine_id,
@@ -985,13 +1112,16 @@ export const api = {
         new_stock: newStock
       };
     },
-    getSales: async (patientId?: string): Promise<MedicineSale[]> => {
+    getSales: async (locationId?: string, patientId?: string): Promise<MedicineSale[]> => {
       try {
         let query = supabase
           .from('medicine_sales')
           .select('*, patients(name), medicines(name)')
           .order('date', { ascending: false });
 
+        if (locationId) {
+          query = query.eq('location_id', locationId);
+        }
         if (patientId) {
           query = query.eq('patient_id', patientId);
         }
@@ -1002,6 +1132,7 @@ export const api = {
 
         return (data || []).map((sale: any) => ({
           id: sale.id,
+          location_id: sale.location_id,
           patient_id: sale.patient_id,
           patient_name: sale.patients?.name || 'Unknown',
           medicine_id: sale.medicine_id,
@@ -1016,6 +1147,110 @@ export const api = {
         console.warn("Error fetching medicine sales:", err);
         return [];
       }
+    }
+  },
+
+  loyalty: {
+    getTransactions: async (patientId: string, locationId?: string): Promise<LoyaltyTransaction[]> => {
+      try {
+        let query = supabase
+          .from('loyalty_transactions')
+          .select('*')
+          .eq('patient_id', patientId)
+          .order('date', { ascending: false });
+        if (locationId) {
+          query = query.eq('location_id', locationId);
+        }
+        const { data, error } = await query;
+        if (error) throw error;
+        return data || [];
+      } catch (err) {
+        console.warn("Error fetching loyalty transactions:", err);
+        return [];
+      }
+    },
+    addTransaction: async (data: Partial<LoyaltyTransaction>): Promise<LoyaltyTransaction> => {
+      const payload = {
+        patient_id: data.patient_id,
+        location_id: data.location_id,
+        points: data.points,
+        type: data.type,
+        description: data.description,
+        date: new Date().toISOString()
+      };
+      const { data: result, error } = await supabase
+        .from('loyalty_transactions')
+        .insert(payload)
+        .select()
+        .single();
+      if (error) throw new Error(error.message);
+      return result;
+    },
+    redeemPoints: async (patientId: string, locationId: string, points: number, amount: number) => {
+      // Fetch current points
+      const { data: patient, error: fetchError } = await supabase
+        .from('patients')
+        .select('loyalty_points, balance')
+        .eq('id', patientId)
+        .single();
+
+      if (fetchError) throw new Error(fetchError.message);
+      if ((patient?.loyalty_points || 0) < points) {
+        throw new Error('Insufficient loyalty points');
+      }
+
+      const newPoints = patient.loyalty_points - points;
+      const newBalance = Math.max(0, (patient.balance || 0) - amount);
+
+      const { error: updateError } = await supabase
+        .from('patients')
+        .update({ loyalty_points: newPoints, balance: newBalance })
+        .eq('id', patientId);
+
+      if (updateError) throw new Error(updateError.message);
+
+      await api.loyalty.addTransaction({
+        patient_id: patientId,
+        location_id: locationId,
+        points: -points,
+        type: 'REDEEMED',
+        description: `Redeemed ${points} points for discount of ${amount}`
+      });
+
+      return { status: 'success', new_points: newPoints, new_balance: newBalance };
+    },
+    getRules: async (locationId?: string): Promise<LoyaltyRule[]> => {
+      try {
+        let query = supabase.from('loyalty_rules').select('*').order('name');
+        if (locationId) {
+          query = query.eq('location_id', locationId);
+        }
+        const { data, error } = await query;
+        if (error) throw error;
+        return data || [];
+      } catch (err) {
+        console.warn("Error fetching loyalty rules:", err);
+        return [];
+      }
+    },
+    updateRule: async (id: string, data: Partial<LoyaltyRule>): Promise<LoyaltyRule> => {
+      const { data: result, error } = await supabase
+        .from('loyalty_rules')
+        .update(data)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw new Error(error.message);
+      return result;
+    },
+    createRule: async (data: Partial<LoyaltyRule>): Promise<LoyaltyRule> => {
+      const { data: result, error } = await supabase
+        .from('loyalty_rules')
+        .insert(data)
+        .select()
+        .single();
+      if (error) throw new Error(error.message);
+      return result;
     }
   }
 };
