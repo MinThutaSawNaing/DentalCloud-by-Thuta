@@ -1271,9 +1271,11 @@ export const api = {
     },
     resetAllPoints: async (): Promise<void> => {
       // 1. Reset points on all patients
+      // We add a dummy filter to satisfy the "WHERE clause" requirement for bulk updates
       const { error: patientError } = await supabase
         .from('patients')
-        .update({ loyalty_points: 0 });
+        .update({ loyalty_points: 0 })
+        .neq('id', '00000000-0000-0000-0000-000000000000');
       
       if (patientError) throw new Error(patientError.message);
 
