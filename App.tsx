@@ -794,7 +794,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex bg-gray-50 flex-col md:flex-row">
       {/* Mobile Header */}
-      <header className="md:hidden bg-gray-900 text-white p-4 flex items-center justify-between sticky top-0 z-30">
+      <header className="md:hidden bg-gray-900 text-white p-4 flex items-center justify-between sticky top-0 z-50">
         <span className="text-lg font-black tracking-tight">DentalCloud<span className="text-indigo-400">Pro</span></span>
         <button 
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -804,10 +804,18 @@ const App: React.FC = () => {
         </button>
       </header>
 
+      {/* Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Sidebar Navigation */}
       <aside 
         style={{ width: `${sidebarWidth}px` }}
-        className={`bg-gray-900 fixed md:sticky inset-y-0 left-0 h-screen z-20 border-r border-gray-800 flex flex-col overflow-hidden transition-transform duration-300 md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
+        className={`bg-gray-900 fixed md:sticky top-0 h-screen z-50 md:z-40 border-r border-gray-800 flex flex-col overflow-hidden transition-transform duration-300 md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <div className="p-8 flex items-center justify-center flex-shrink-0">
           <span className="text-xl font-black text-white tracking-tight text-center">DentalCloud<span className="text-indigo-400">Pro</span></span>
@@ -893,10 +901,7 @@ const App: React.FC = () => {
         />
       </aside>
 
-      <main 
-        style={{ marginLeft: isMobileMenuOpen ? '0' : (window.innerWidth < 768 ? '0' : `${sidebarWidth}px`) }}
-        className="flex-1 p-4 md:p-10"
-      >
+      <main className="flex-1 min-w-0 p-4 md:p-10">
         <div className="max-w-6xl mx-auto">
           <Suspense fallback={<div className="flex justify-center p-20"><Loader2 className="animate-spin text-indigo-600 w-10 h-10" /></div>}>
             {currentView === 'dashboard' && <DashboardView patients={patients} appointments={appointments} treatmentRecords={globalRecords} currency={currency} />}
