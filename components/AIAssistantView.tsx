@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bot, Send, Loader2, Sparkles, AlertCircle, User, Copy, Check } from 'lucide-react';
+import { Bot, Send, Loader2, Sparkles, AlertCircle, User, Copy, Check, Plus, Trash2, MessageCircle } from 'lucide-react';
 import { Patient, ClinicalRecord, Appointment, Doctor, TreatmentType, User as UserType, Medicine } from '../types';
 
 // ============================================================
@@ -18,6 +18,14 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+}
+
+interface ChatSession {
+  id: string;
+  title: string;
+  messages: Message[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface AIAssistantViewProps {
@@ -39,8 +47,26 @@ const AIAssistantView: React.FC<AIAssistantViewProps> = ({
   users,
   medicines
 }) => {
-  // Daily usage limit tracking
   const DAILY_LIMIT = 4;
+
+  const getDefaultMessages = (): Message[] => [{
+    id: '1',
+    role: 'assistant',
+    content: `👋 Hello! I'm Loli, your AI Clinical Assistant. I can help you with:
+
+• Patient case analysis
+• Treatment recommendations
+• Dental diagnosis suggestions
+• Clinical documentation
+• Medical history interpretation
+
+How can I assist you today?
+
+💡 *Note: You have ${DAILY_LIMIT} free requests per day.*`,
+    timestamp: new Date()
+  }];
+
+  // Daily usage limit tracking
   const [dailyUsageCount, setDailyUsageCount] = useState<number>(() => {
     const today = new Date().toDateString();
     const savedData = localStorage.getItem('loli_usage');
@@ -53,24 +79,22 @@ const AIAssistantView: React.FC<AIAssistantViewProps> = ({
     return 0;
   });
   
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: `👋 Hello! I'm Loli, your AI Clinical Assistant. I can help you with:
-
-• Patient case analysis
-• Treatment recommendations
-• Dental diagnosis suggestions
-• Clinical documentation
-• Medical history interpretation
-
-How can I assist you today?
-
-💡 *Note: You have ${DAILY_LIMIT} free requests per day. Today's usage: ${dailyUsageCount}/${DAILY_LIMIT}*`,
-      timestamp: new Date()
+  // Chat session state
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>(() => {
+    const saved = localStorage.getItem('loli_chat_sessions');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [currentSessionId, setCurrentSessionId] = useState<string>(() => {
+    const saved = localStorage.getItem('loli_current_session');
+    return saved || '';
+  });
+  const [messages, setMessages] = useState<Message[]>(() => {
+    if (currentSessionId) {
+      const session = chatSessions.find(s => s.id === currentSessionId);
+      return session?.messages || getDefaultMessages();
     }
-  ]);
+    return getDefaultMessages();
+  });
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [apiStatus, setApiStatus] = useState<'ready' | 'mock' | 'error'>('mock');
@@ -87,6 +111,19 @@ How can I assist you today?
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // Cleanup old chat sessions on mount and at regular intervals
+  useEffect(() => {
+    // Run cleanup immediately on mount
+    cleanupOldSessions();
+    
+    // Set up periodic cleanup (every 24 hours)
+    const cleanupInterval = setInterval(() => {
+      cleanupOldSessions();
+    }, 24 * 60 * 60 * 1000); // 24 hours in milliseconds
+    
+    return () => clearInterval(cleanupInterval);
+  }, [chatSessions]);
 
   // Check if real API key is configured
   useEffect(() => {
@@ -105,6 +142,91 @@ How can I assist you today?
       setTimeout(() => setCopiedId(null), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
+    }
+  };
+
+  const createNewSession = () => {
+    const sessionId = Date.now().toString();
+    const newSession: ChatSession = {
+      id: sessionId,
+      title: 'New Conversation',
+      messages: getDefaultMessages(),
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    const updated = [newSession, ...chatSessions];
+    setChatSessions(updated);
+    setCurrentSessionId(sessionId);
+    setMessages(newSession.messages);
+    localStorage.setItem('loli_chat_sessions', JSON.stringify(updated));
+    localStorage.setItem('loli_current_session', sessionId);
+  };
+
+  const switchSession = (sessionId: string) => {
+    const session = chatSessions.find(s => s.id === sessionId);
+    if (session) {
+      setCurrentSessionId(sessionId);
+      setMessages(session.messages);
+      localStorage.setItem('loli_current_session', sessionId);
+    }
+  };
+
+  const deleteSession = (sessionId: string) => {
+    const updated = chatSessions.filter(s => s.id !== sessionId);
+    setChatSessions(updated);
+    if (currentSessionId === sessionId) {
+      if (updated.length > 0) {
+        switchSession(updated[0].id);
+      } else {
+        setCurrentSessionId('');
+        setMessages(getDefaultMessages());
+        localStorage.removeItem('loli_current_session');
+      }
+    }
+    localStorage.setItem('loli_chat_sessions', JSON.stringify(updated));
+  };
+
+  const saveSession = (newMessages: Message[]) => {
+    if (!currentSessionId) {
+      createNewSession();
+      return;
+    }
+    const updated = chatSessions.map(s => {
+      if (s.id === currentSessionId) {
+        const userMsg = newMessages.find(m => m.role === 'user');
+        const title = userMsg?.content.substring(0, 30) + '...' || s.title;
+        return { ...s, messages: newMessages, title, updatedAt: new Date() };
+      }
+      return s;
+    });
+    setChatSessions(updated);
+    localStorage.setItem('loli_chat_sessions', JSON.stringify(updated));
+  };
+
+  const cleanupOldSessions = () => {
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+    
+    const filtered = chatSessions.filter(session => {
+      const sessionDate = new Date(session.createdAt);
+      return sessionDate > threeDaysAgo;
+    });
+    
+    // Only update if something was deleted
+    if (filtered.length < chatSessions.length) {
+      setChatSessions(filtered);
+      localStorage.setItem('loli_chat_sessions', JSON.stringify(filtered));
+      
+      // If current session was deleted, switch to first available
+      if (!filtered.find(s => s.id === currentSessionId)) {
+        if (filtered.length > 0) {
+          switchSession(filtered[0].id);
+        } else {
+          setCurrentSessionId('');
+          setMessages(getDefaultMessages());
+          localStorage.removeItem('loli_current_session');
+        }
+      }
     }
   };
 
@@ -551,7 +673,8 @@ Thank you for using Loli! 🦷✨`,
       timestamp: new Date()
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     setInputMessage('');
     setIsLoading(true);
 
@@ -565,7 +688,9 @@ Thank you for using Loli! 🦷✨`,
         timestamp: new Date()
       };
 
-      setMessages(prev => [...prev, assistantMessage]);
+      const finalMessages = [...updatedMessages, assistantMessage];
+      setMessages(finalMessages);
+      saveSession(finalMessages);
       
       // Increment usage count and save to localStorage
       const newCount = dailyUsageCount + 1;
@@ -603,179 +728,188 @@ Thank you for using Loli! 🦷✨`,
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl">
-            <Sparkles className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-black text-gray-900">Loli - AI Clinical Assistant</h1>
-            <p className="text-sm text-gray-500 font-medium">by WinterArc Myanmar | Daily Limit: {dailyUsageCount}/{DAILY_LIMIT}</p>
+    <div className="flex h-screen bg-gray-50">
+      {/* Chat History Sidebar */}
+      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm">
+        {/* Header */}
+        <div className="p-4 border-b border-gray-200">
+          <button
+            onClick={createNewSession}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            New Chat
+          </button>
+        </div>
+        
+        {/* Sessions List */}
+        <div className="flex-1 overflow-y-auto">
+          {chatSessions.length === 0 ? (
+            <div className="p-4 text-center text-gray-400 text-sm">
+              <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p>No conversations yet</p>
+            </div>
+          ) : (
+            <div className="space-y-1 p-2">
+              {chatSessions.map(session => (
+                <div
+                  key={session.id}
+                  className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${
+                    currentSessionId === session.id
+                      ? 'bg-indigo-50 text-indigo-700'
+                      : 'hover:bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  <button
+                    onClick={() => switchSession(session.id)}
+                    className="flex-1 text-left truncate"
+                    title={session.title}
+                  >
+                    <div className="text-sm font-medium truncate">{session.title}</div>
+                    <div className="text-xs opacity-70">{session.messages.length} messages</div>
+                  </button>
+                  <button
+                    onClick={() => deleteSession(session.id)}
+                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded text-red-600 transition-all"
+                    title="Delete conversation"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </aside>
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 px-6 py-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Loli AI Assistant</h1>
+              <p className="text-xs text-gray-500">by WinterArc Myanmar | Daily: {dailyUsageCount}/{DAILY_LIMIT}</p>
+            </div>
           </div>
         </div>
 
-        {/* API Status Banner */}
-        {apiStatus === 'mock' && (
-          <div className="mt-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h3 className="text-sm font-bold text-yellow-800 mb-1">Mock Mode Active</h3>
-                <p className="text-xs text-yellow-700 leading-relaxed mb-2">
-                  Using simulated responses. To enable real AI:
-                </p>
-                <ol className="text-xs text-yellow-700 space-y-1 ml-4 list-decimal">
-                  <li>Get your API key from: <a href="https://apifree.ai" target="_blank" rel="noopener noreferrer" className="underline font-semibold">apifree.ai</a></li>
-                  <li>Create a <code className="bg-yellow-100 px-1 py-0.5 rounded">.env</code> file in project root</li>
-                  <li>Add: <code className="bg-yellow-100 px-1 py-0.5 rounded">AI_API_KEY=your_actual_key</code></li>
-                  <li>Restart the dev server</li>
-                </ol>
-                <p className="text-xs text-yellow-700 mt-2">
-                  📄 The file location to edit: <code className="bg-yellow-100 px-1 py-0.5 rounded">d:\Dental Cloud Qoder\DentalCloud-by-Thuta\.env</code>
-                </p>
+        <div className="flex-1 overflow-auto">
+          <div className="max-w-4xl mx-auto p-6 space-y-6">
+            {/* API Status Banner */}
+            {apiStatus === 'mock' && (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 text-sm">
+                    <h3 className="font-semibold text-yellow-800 mb-1">Mock Mode Active</h3>
+                    <p className="text-yellow-700 text-xs">Connect to <code className="bg-yellow-100 px-1">apifree.ai</code> for real AI responses</p>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {apiStatus === 'error' && (
-          <div className="mt-4 p-4 bg-red-50 border-l-4 border-red-400 rounded-lg">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <h3 className="text-sm font-bold text-red-800 mb-1">API Connection Error</h3>
-                <p className="text-xs text-red-700">Please check your API key configuration and internet connection.</p>
+            {apiStatus === 'error' && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-600" />
+                  <p className="text-sm text-red-700">API connection error. Check your configuration.</p>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
-      </div>
+            )}
 
-      {/* Chat Container */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col" style={{ height: 'calc(100vh - 300px)', minHeight: '500px', maxHeight: '700px' }}>
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              {message.role === 'assistant' && (
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
-                  <Bot className="w-5 h-5 text-white" />
+            {/* Chat Messages */}
+            <div className="space-y-4">
+              {messages.map((message) => (
+                <div key={message.id} className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  {message.role === 'assistant' && (
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
+                      <Bot className="w-5 h-5 text-white" />
+                    </div>
+                  )}
+                  
+                  <div
+                    className={`max-w-2xl group relative ${
+                      message.role === 'user'
+                        ? 'bg-indigo-600 text-white rounded-2xl rounded-tr-sm px-4 py-3'
+                        : 'bg-gray-100 text-gray-900 rounded-2xl rounded-tl-sm px-4 py-3'
+                    }`}
+                  >
+                    <div className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</div>
+                    <div className={`flex items-center gap-2 mt-2 pt-2 border-t ${
+                      message.role === 'user' ? 'border-indigo-500' : 'border-gray-300'
+                    }`}>
+                      <span className={`text-[10px] ${
+                        message.role === 'user' ? 'text-indigo-200' : 'text-gray-500'
+                      }`}>
+                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <button
+                        onClick={() => copyToClipboard(message.content, message.id)}
+                        className={`ml-auto p-1 rounded hover:bg-opacity-20 transition-colors ${
+                          message.role === 'user' ? 'text-indigo-200 hover:bg-indigo-900' : 'text-gray-500 hover:bg-gray-300'
+                        }`}
+                        title="Copy"
+                      >
+                        {copiedId === message.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {message.role === 'user' && (
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center">
+                      <User className="w-5 h-5 text-white" />
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {isLoading && (
+                <div className="flex gap-3 justify-start">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
+                    <Bot className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 text-indigo-600 animate-spin" />
+                      <span className="text-sm text-gray-600">Thinking...</span>
+                    </div>
+                  </div>
                 </div>
               )}
               
-              <div
-                className={`max-w-[80%] group relative ${
-                  message.role === 'user'
-                    ? 'bg-indigo-600 text-white rounded-2xl rounded-tr-sm'
-                    : 'bg-gray-50 text-gray-900 rounded-2xl rounded-tl-sm'
-                } px-4 py-3`}
-              >
-                <div className="text-sm whitespace-pre-wrap leading-relaxed">
-                  {message.content}
-                </div>
-                <div className={`flex items-center gap-2 mt-2 pt-2 border-t ${
-                  message.role === 'user' ? 'border-indigo-500' : 'border-gray-200'
-                }`}>
-                  <span className={`text-[10px] font-medium ${
-                    message.role === 'user' ? 'text-indigo-200' : 'text-gray-400'
-                  }`}>
-                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                  <button
-                    onClick={() => copyToClipboard(message.content, message.id)}
-                    className={`ml-auto p-1 rounded hover:bg-opacity-10 hover:bg-black transition-colors ${
-                      message.role === 'user' ? 'text-indigo-200' : 'text-gray-400'
-                    }`}
-                    title="Copy message"
-                  >
-                    {copiedId === message.id ? (
-                      <Check className="w-3 h-3" />
-                    ) : (
-                      <Copy className="w-3 h-3" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {message.role === 'user' && (
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center">
-                  <User className="w-5 h-5 text-white" />
-                </div>
-              )}
+              <div ref={messagesEndRef} />
             </div>
-          ))}
-
-          {isLoading && (
-            <div className="flex gap-3 justify-start">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
-                <Bot className="w-5 h-5 text-white" />
-              </div>
-              <div className="bg-gray-50 rounded-2xl rounded-tl-sm px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 text-indigo-600 animate-spin" />
-                  <span className="text-sm text-gray-500">Thinking...</span>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          <div ref={messagesEndRef} />
+          </div>
         </div>
 
-        {/* Quick Prompts */}
-        {messages.length === 1 && (
-          <div className="px-6 pb-4 pt-2 border-t border-gray-100 flex-shrink-0">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Quick Questions</p>
-            <div className="grid grid-cols-2 gap-2">
-              {quickPrompts.map((prompt, index) => (
-                <button
-                  key={index}
-                  onClick={() => setInputMessage(prompt)}
-                  className="text-left text-xs p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200 hover:border-indigo-300"
-                >
-                  {prompt}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Input Area */}
-        <div className="p-4 border-t border-gray-100 flex-shrink-0">
-          <div className="flex gap-3">
-            <textarea
-              ref={inputRef}
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Ask me anything about dental procedures, treatments, or patient care..."
-              className="flex-1 border border-gray-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
-              rows={2}
-              disabled={isLoading}
-            />
-            <button
-              onClick={handleSendMessage}
-              disabled={!inputMessage.trim() || isLoading}
-              className="px-6 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-            >
-              {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <>
-                  <Send className="w-5 h-5" />
-                  <span className="hidden sm:inline">Send</span>
-                </>
-              )}
-            </button>
+        <div className="bg-white border-t border-gray-200 p-4 shadow-sm">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex gap-3">
+              <textarea
+                ref={inputRef}
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Ask Loli anything about patient care, treatments, or dental procedures..."
+                className="flex-1 border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                rows={2}
+                disabled={isLoading}
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={!inputMessage.trim() || isLoading}
+                className="px-6 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold transition-colors flex items-center justify-center gap-2 h-fit mt-1"
+              >
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              </button>
+            </div>
+            <p className="text-[10px] text-gray-400 mt-2 text-center">AI guidance is for reference. Always verify with clinical judgment.</p>
           </div>
-          <p className="text-[10px] text-gray-400 mt-2 text-center">
-            AI responses are for reference only. Always verify with professional clinical judgment.
-          </p>
         </div>
       </div>
     </div>
