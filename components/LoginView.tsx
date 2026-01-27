@@ -58,7 +58,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       {/* Left Panel - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 p-12 flex-col justify-between">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-900 via-purple-900 to-slate-900 p-8 flex-col justify-between">
         <div>
           <div className="flex items-center gap-3 mb-8">
             <div className="w-12 h-12 bg-white/10 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/20">
@@ -68,10 +68,10 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
           </div>
           
           <div className="max-w-md">
-            <h2 className="text-4xl font-black text-white mb-4 leading-tight">
+            <h2 className="text-3xl font-black text-white mb-4 leading-tight">
               Professional Dental Practice Management
             </h2>
-            <p className="text-indigo-200 text-lg mb-8 leading-relaxed">
+            <p className="text-indigo-200 text-base mb-8 leading-relaxed">
               Secure, reliable, and enterprise-grade solution for your clinic's operations.
             </p>
             
@@ -115,18 +115,18 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
       </div>
       
       {/* Right Panel - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 lg:p-12">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 lg:p-8">
         <div className="w-full max-w-md">
-          <div className="text-center mb-10 lg:mb-12">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl mb-6 shadow-lg">
+          <div className="text-center mb-8 lg:mb-10">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl mb-5 shadow-lg">
               <Fingerprint className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-3xl font-black text-gray-900 mb-3 tracking-tight">Welcome Back</h1>
+            <h1 className="text-2xl lg:text-3xl font-black text-gray-900 mb-2 tracking-tight">Welcome Back</h1>
             <p className="text-gray-600 font-medium">Sign in to your DentalCloud Pro account</p>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 lg:p-10">
-            <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 lg:p-8">
+            <form onSubmit={handleSubmit} className="space-y-5 lg:space-y-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                   <User className="w-4 h-4 text-gray-500" />
@@ -139,7 +139,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Enter your username"
                     required
-                    className="w-full pl-11 pr-4 py-3.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-gray-50 focus:bg-white"
+                    className="w-full pl-11 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-gray-50 focus:bg-white"
                     autoFocus
                   />
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -158,7 +158,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
                     required
-                    className="w-full pl-11 pr-12 py-3.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-gray-50 focus:bg-white"
+                    className="w-full pl-11 pr-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-gray-50 focus:bg-white"
                   />
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <button
@@ -192,14 +192,14 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                     <RefreshCw size={18} className="text-gray-500" />
                   </button>
                 </div>
-                <div className="mt-3">
+                <div className="mt-2 lg:mt-3">
                   <input
                     type="number"
                     value={captchaAnswer}
                     onChange={(e) => setCaptchaAnswer(e.target.value)}
                     placeholder="Enter answer to verify"
                     required
-                    className="w-full px-4 py-3.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-gray-50 focus:bg-white"
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-gray-50 focus:bg-white"
                   />
                 </div>
               </div>
@@ -224,7 +224,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               </div>
 
               {error && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700 font-medium flex items-start gap-2">
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700 font-medium flex items-start gap-2">
                   <svg className="w-5 h-5 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
@@ -235,7 +235,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30"
+                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-3.5 lg:py-4 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30"
               >
                 {loading ? (
                   <>
@@ -251,24 +251,24 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               </button>
             </form>
 
-            <div className="mt-8 pt-6 border-t border-gray-100">
+            <div className="mt-6 pt-5 border-t border-gray-100">
               <div className="text-center">
-                <p className="text-xs text-gray-500 font-medium mb-2">
+                <p className="text-xs text-gray-500 font-medium mb-1">
                   Default admin credentials:
                 </p>
-                <p className="text-xs text-gray-600 bg-gray-50 rounded-lg py-2 px-3 inline-block font-mono">
+                <p className="text-xs text-gray-600 bg-gray-50 rounded-lg py-1.5 px-2.5 inline-block font-mono">
                   admin / admin123
                 </p>
               </div>
               
-              <div className="mt-6 flex items-center justify-center gap-1 text-xs text-gray-400">
+              <div className="mt-4 flex items-center justify-center gap-1 text-xs text-gray-400">
                 <Lock className="w-3 h-3" />
                 <span>Secured by AES-256 encryption</span>
               </div>
             </div>
           </div>
           
-          <div className="text-center mt-8 text-sm text-gray-500">
+          <div className="text-center mt-6 text-xs lg:text-sm text-gray-500">
             <p>© {new Date().getFullYear()} WinterArc Myanmar. All rights reserved.</p>
           </div>
         </div>
