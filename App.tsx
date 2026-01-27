@@ -985,7 +985,15 @@ const App: React.FC = () => {
                 onToggleLoyalty={handleToggleLoyalty}
                 isAdmin={isAdmin} 
             />}
-            {currentView === 'ai-assistant' && <AIAssistantView patients={patients} treatmentRecords={globalRecords} />}
+            {currentView === 'ai-assistant' && <AIAssistantView 
+              patients={patients} 
+              treatmentRecords={globalRecords} 
+              appointments={appointments}
+              doctors={doctors}
+              treatmentTypes={treatmentTypes}
+              users={users}
+              medicines={medicines}
+            />}
             {currentView === 'finance' && <ClinicalView 
                 selectedPatient={selectedPatient} 
                 selectedTeeth={selectedTeeth} 

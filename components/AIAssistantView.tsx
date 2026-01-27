@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bot, Send, Loader2, Sparkles, AlertCircle, User, Copy, Check } from 'lucide-react';
-import { Patient, ClinicalRecord } from '../types';
+import { Patient, ClinicalRecord, Appointment, Doctor, TreatmentType, User as UserType, Medicine } from '../types';
 
 // ============================================================
 // IMPORTANT: REPLACE MOCK API KEY WITH YOUR REAL API KEY FROM APIFREE.AI
@@ -23,9 +23,22 @@ interface Message {
 interface AIAssistantViewProps {
   patients: Patient[];
   treatmentRecords: ClinicalRecord[];
+  appointments: Appointment[];
+  doctors: Doctor[];
+  treatmentTypes: TreatmentType[];
+  users: UserType[];
+  medicines: Medicine[];
 }
 
-const AIAssistantView: React.FC<AIAssistantViewProps> = ({ patients, treatmentRecords }) => {
+const AIAssistantView: React.FC<AIAssistantViewProps> = ({ 
+  patients, 
+  treatmentRecords,
+  appointments,
+  doctors,
+  treatmentTypes,
+  users,
+  medicines
+}) => {
   // Daily usage limit tracking
   const DAILY_LIMIT = 3;
   const [dailyUsageCount, setDailyUsageCount] = useState<number>(() => {
@@ -96,20 +109,20 @@ How can I assist you today?
   };
 
   const getContextualData = () => {
-    // Prepare contextual data about the practice
-    const totalPatients = patients.length;
-    const recentRecords = treatmentRecords.slice(0, 10);
-    
+    // Highly optimized/compressed data for minimal token usage
     return {
-      practiceInfo: {
-        totalPatients,
-        recentTreatmentsCount: recentRecords.length
+      s: { // stats
+        p: patients.length,
+        a: appointments.length,
+        d: doctors.length,
+        t: treatmentTypes.length,
+        m: medicines.length
       },
-      recentActivity: recentRecords.map(r => ({
-        patientName: r.patient_name,
-        treatment: r.description,
-        date: r.date
-      }))
+      // Essential info only
+      dr: doctors.map(d => ({ n: d.name, s: d.specialization })), 
+      ua: appointments.filter(a => a.status === 'Scheduled').slice(0, 5).map(a => ({ p: a.patient_name, d: a.doctor_name, t: `${a.date} ${a.time}` })),
+      tr: treatmentRecords.slice(0, 5).map(r => ({ p: r.patient_name, d: r.description, dt: r.date })),
+      ls: medicines.filter(m => m.stock <= (m.min_stock || 0)).map(m => ({ n: m.name, q: m.stock }))
     };
   };
 
@@ -147,12 +160,10 @@ I'm **Loli**, an AI model trained by **WinterArc Myanmar**, specially designed b
     // Real API call to apifree.ai
     try {
       const contextData = getContextualData();
-      const systemPrompt = `You are Loli, an expert dental AI assistant created by WinterArc Myanmar and designed by Min Thuta Saw Naing (AI Engineer & DevOps) for dental clinic usage. You help dentists with clinical decisions.
-You have access to the following practice data: ${JSON.stringify(contextData, null, 2)}
-
-Provide professional, evidence-based advice for dental clinical scenarios. 
-Always remind users that your suggestions should be verified by licensed professionals.
-If asked about your identity, respond that you are Loli, trained by WinterArc Myanmar, designed by Min Thuta Saw Naing for dental clinic usage.`;
+      const systemPrompt = `You are Loli, a dental AI assistant by WinterArc Myanmar, designed by Min Thuta Saw Naing.
+Practice Data (Compressed): ${JSON.stringify(contextData)}
+Keys: s=stats(p:patients,a:apps,d:docs,t:treatments,m:meds), dr=doctors, ua=upcoming apps, tr=recent treatments, ls=low stock meds.
+Provide clinical/practice advice. Verification by pros required. Identity: Loli by WinterArc Myanmar.`;
 
       const response = await fetch(
         `https://api.apifree.ai/v1/chat/completions`,
@@ -458,12 +469,12 @@ If asked about your identity, respond that you are Loli, trained by WinterArc My
           resolve(`📊 **Practice Overview:**
 
 **Current Statistics:**
-- Total Active Patients: ${contextData.practiceInfo.totalPatients}
-- Recent Treatments: ${contextData.practiceInfo.recentTreatmentsCount}
+- Total Active Patients: ${contextData.s.p}
+- Recent Treatments: ${contextData.s.a}
 
 **Recent Activity:**
-${contextData.recentActivity.slice(0, 5).map(r => 
-  `• ${r.patientName}: ${r.treatment} (${new Date(r.date).toLocaleDateString()})`
+${contextData.tr.map(r => 
+  `• ${r.p}: ${r.d} (${new Date(r.dt).toLocaleDateString()})`
 ).join('\n')}
 
 💡 *This is real data from your practice. What specific aspect would you like to discuss?*`);
