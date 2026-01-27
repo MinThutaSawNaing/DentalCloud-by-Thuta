@@ -109,8 +109,10 @@ How can I assist you today?
   };
 
   const getContextualData = () => {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
     // Highly optimized/compressed data for minimal token usage
     return {
+      td: today, // today's date
       s: { // stats
         p: patients.length,
         a: appointments.length,
@@ -120,7 +122,8 @@ How can I assist you today?
       },
       // Essential info only
       dr: doctors.map(d => ({ n: d.name, s: d.specialization })), 
-      ua: appointments.filter(a => a.status === 'Scheduled').slice(0, 5).map(a => ({ p: a.patient_name, d: a.doctor_name, t: `${a.date} ${a.time}` })),
+      ta: appointments.filter(a => a.status === 'Scheduled' && a.date === today).map(a => ({ p: a.patient_name, d: a.doctor_name, t: a.time })), // today's appointments
+      ua: appointments.filter(a => a.status === 'Scheduled' && a.date >= today).slice(0, 5).map(a => ({ p: a.patient_name, d: a.doctor_name, dt: a.date, t: a.time })),
       tr: treatmentRecords.slice(0, 5).map(r => ({ p: r.patient_name, d: r.description, dt: r.date })),
       ls: medicines.filter(m => m.stock <= (m.min_stock || 0)).map(m => ({ n: m.name, q: m.stock }))
     };
@@ -161,8 +164,9 @@ I'm **Loli**, an AI model trained by **WinterArc Myanmar**, specially designed b
     try {
       const contextData = getContextualData();
       const systemPrompt = `You are Loli, a dental AI assistant by WinterArc Myanmar, designed by Min Thuta Saw Naing.
+Today: ${contextData.td}
 Practice Data (Compressed): ${JSON.stringify(contextData)}
-Keys: s=stats(p:patients,a:apps,d:docs,t:treatments,m:meds), dr=doctors, ua=upcoming apps, tr=recent treatments, ls=low stock meds.
+Keys: td=today, s=stats(p:patients,a:apps,d:docs,t:treatments,m:meds), dr=doctors, ta=today's apps, ua=upcoming apps, tr=recent treatments, ls=low stock meds.
 Provide clinical/practice advice. Verification by pros required. Identity: Loli by WinterArc Myanmar.`;
 
       const response = await fetch(
