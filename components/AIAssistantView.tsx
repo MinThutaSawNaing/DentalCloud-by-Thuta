@@ -3,15 +3,15 @@ import { Bot, Send, Loader2, Sparkles, AlertCircle, User, Copy, Check } from 'lu
 import { Patient, ClinicalRecord } from '../types';
 
 // ============================================================
-// IMPORTANT: REPLACE MOCK API KEY WITH YOUR REAL GEMINI API KEY
+// IMPORTANT: REPLACE MOCK API KEY WITH YOUR REAL API KEY FROM APIFREE.AI
 // ============================================================
 // This is a MOCK API key for demonstration purposes.
-// To use the real Gemini AI:
-// 1. Get your Gemini API key from: https://makersuite.google.com/app/apikey
-// 2. Add it to your .env file as: GEMINI_API_KEY=your_actual_api_key_here
-// 3. The vite.config.ts is already configured to read it as process.env.GEMINI_API_KEY
+// To use the real AI Assistant:
+// 1. Get your API key from: https://apifree.ai
+// 2. Add it to your .env file as: AI_API_KEY=your_actual_api_key_here
+// 3. The vite.config.ts is already configured to read it as process.env.AI_API_KEY
 // ============================================================
-const MOCK_API_KEY = 'REPLACE_WITH_YOUR_GEMINI_API_KEY';
+const MOCK_API_KEY = 'REPLACE_WITH_YOUR_AI_API_KEY';
 
 interface Message {
   id: string;
@@ -77,8 +77,8 @@ How can I assist you today?
 
   // Check if real API key is configured
   useEffect(() => {
-    const apiKey = process.env.GEMINI_API_KEY || MOCK_API_KEY;
-    if (apiKey === MOCK_API_KEY || apiKey === 'REPLACE_WITH_YOUR_GEMINI_API_KEY') {
+    const apiKey = process.env.AI_API_KEY || MOCK_API_KEY;
+    if (apiKey === MOCK_API_KEY || apiKey === 'REPLACE_WITH_YOUR_AI_API_KEY') {
       setApiStatus('mock');
     } else {
       setApiStatus('ready');
@@ -113,8 +113,8 @@ How can I assist you today?
     };
   };
 
-  const callGeminiAPI = async (userMessage: string): Promise<string> => {
-    const apiKey = process.env.GEMINI_API_KEY || MOCK_API_KEY;
+  const callAICompletionAPI = async (userMessage: string): Promise<string> => {
+    const apiKey = process.env.AI_API_KEY || MOCK_API_KEY;
     
     // Check for identity questions first (works in both mock and real mode)
     const lowerMessage = userMessage.toLowerCase();
@@ -140,11 +140,11 @@ I'm **Loli**, an AI model trained by **WinterArc Myanmar**, specially designed b
     }
     
     // If using mock API key, return simulated response
-    if (apiKey === MOCK_API_KEY || apiKey === 'REPLACE_WITH_YOUR_GEMINI_API_KEY') {
+    if (apiKey === MOCK_API_KEY || apiKey === 'REPLACE_WITH_YOUR_AI_API_KEY') {
       return simulateMockResponse(userMessage);
     }
 
-    // Real Gemini API call
+    // Real API call to apifree.ai
     try {
       const contextData = getContextualData();
       const systemPrompt = `You are Loli, an expert dental AI assistant created by WinterArc Myanmar and designed by Min Thuta Saw Naing (AI Engineer & DevOps) for dental clinic usage. You help dentists with clinical decisions.
@@ -155,49 +155,50 @@ Always remind users that your suggestions should be verified by licensed profess
 If asked about your identity, respond that you are Loli, trained by WinterArc Myanmar, designed by Min Thuta Saw Naing for dental clinic usage.`;
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,
+        `https://api.apifree.ai/v1/chat/completions`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey
+            'Authorization': `Bearer ${apiKey}`
           },
           body: JSON.stringify({
-            contents: [
+            model: "google/gemini-2.5-flash-lite",
+            messages: [
               {
-                parts: [
-                  {
-                    text: `${systemPrompt}\n\nUser question: ${userMessage}`
-                  }
-                ]
+                role: "system",
+                content: systemPrompt
+              },
+              {
+                role: "user",
+                content: userMessage
               }
             ],
-            generationConfig: {
-              temperature: 0.7,
-              topK: 40,
-              topP: 0.95,
-              maxOutputTokens: 1024,
-            },
+            temperature: 0.7,
+            max_tokens: 2048,
+            top_p: 1,
+            stream: false
           }),
         }
       );
 
       if (!response.ok) {
-        throw new Error(`API request failed: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || `API request failed: ${response.status}`);
       }
 
       const data = await response.json();
-      const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      const aiResponse = data.choices?.[0]?.message?.content;
       
       if (!aiResponse) {
-        throw new Error('No response from API');
+        throw new Error('No response from AI service');
       }
 
       return aiResponse;
-    } catch (error) {
-      console.error('Gemini API Error:', error);
+    } catch (error: any) {
+      console.error('AI API Error:', error);
       setApiStatus('error');
-      return '❌ Error connecting to AI service. Please check your API key configuration and try again.';
+      return `❌ Error connecting to AI service: ${error.message || 'Unknown error'}. Please check your API key configuration and try again.`;
     }
   };
 
@@ -540,7 +541,7 @@ Thank you for using Loli! 🦷✨`,
     setIsLoading(true);
 
     try {
-      const aiResponse = await callGeminiAPI(userMessage.content);
+      const aiResponse = await callAICompletionAPI(userMessage.content);
       
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -611,9 +612,9 @@ Thank you for using Loli! 🦷✨`,
                   Using simulated responses. To enable real AI:
                 </p>
                 <ol className="text-xs text-yellow-700 space-y-1 ml-4 list-decimal">
-                  <li>Get your API key from: <a href="https://makersuite.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline font-semibold">Google AI Studio</a></li>
+                  <li>Get your API key from: <a href="https://apifree.ai" target="_blank" rel="noopener noreferrer" className="underline font-semibold">apifree.ai</a></li>
                   <li>Create a <code className="bg-yellow-100 px-1 py-0.5 rounded">.env</code> file in project root</li>
-                  <li>Add: <code className="bg-yellow-100 px-1 py-0.5 rounded">GEMINI_API_KEY=your_actual_key</code></li>
+                  <li>Add: <code className="bg-yellow-100 px-1 py-0.5 rounded">AI_API_KEY=your_actual_key</code></li>
                   <li>Restart the dev server</li>
                 </ol>
                 <p className="text-xs text-yellow-700 mt-2">

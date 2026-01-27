@@ -6,7 +6,7 @@ Your AI Clinical Assistant is now integrated into DentalCloudPro and ready to us
 
 ---
 
-## 🚀 Where to Replace the Gemini API Key
+## 🚀 Where to Replace the AI API Key
 
 ### **Option 1: Using Mock Mode (No API Key Needed)**
 The assistant works immediately with intelligent mock responses. You can start using it right away to:
@@ -17,14 +17,14 @@ The assistant works immediately with intelligent mock responses. You can start u
 ### **Option 2: Enable Real AI (Recommended)**
 
 #### **Step 1: Get API Key**
-Visit: https://makersuite.google.com/app/apikey
+Visit: https://apifree.ai
 
 #### **Step 2: Create .env File**
 Create this file: `d:\Dental Cloud Qoder\DentalCloud-by-Thuta\.env`
 
 #### **Step 3: Add Your Key**
 ```env
-GEMINI_API_KEY=AIzaSyYourActualKeyHere
+AI_API_KEY=your_apifree_ai_api_key_here
 ```
 
 #### **Step 4: Restart Server**
@@ -64,7 +64,7 @@ npm run dev
 ### **Mock API Key Constant** (Line 12)
 **File:** `components/AIAssistantView.tsx`
 ```typescript
-const MOCK_API_KEY = 'REPLACE_WITH_YOUR_GEMINI_API_KEY';
+const MOCK_API_KEY = 'REPLACE_WITH_YOUR_AI_API_KEY';
 ```
 ⚠️ **This is just for reference** - actual key goes in `.env` file!
 
@@ -72,7 +72,7 @@ const MOCK_API_KEY = 'REPLACE_WITH_YOUR_GEMINI_API_KEY';
 **File:** `vite.config.ts` (Lines 14-15)
 ```typescript
 define: {
-  'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+  'process.env.AI_API_KEY': JSON.stringify(env.AI_API_KEY)
 }
 ```
 ✅ Already configured - just add key to `.env` file!
@@ -80,7 +80,7 @@ define: {
 ### **Environment Variable**
 **File:** `.env` (create this file)
 ```env
-GEMINI_API_KEY=your_actual_gemini_api_key_here
+AI_API_KEY=your_actual_api_key_here
 ```
 
 ---
@@ -121,20 +121,20 @@ GEMINI_API_KEY=your_actual_gemini_api_key_here
 
 ✅ `.env` is already in `.gitignore` - your API key is safe!  
 ✅ Never commit API keys to version control  
-✅ Keep your Gemini API key private  
+✅ Keep your AI API key private  
 
 ---
 
 ## 📱 Need Help?
 
 - **Full Documentation**: See `AI_ASSISTANT_SETUP.md`
-- **API Issues**: Check Google AI Studio status
+- **API Issues**: Check apifree.ai status
 - **Questions**: Review inline comments in `AIAssistantView.tsx`
 
 ---
 
 ## 🎉 You're All Set!
 
-The AI Assistant is now part of your DentalCloudPro application. Start using it with mock responses immediately, or add your Gemini API key for full AI capabilities!
+The AI Assistant is now part of your DentalCloudPro application. Start using it with mock responses immediately, or add your API key for full AI capabilities!
 
 **Enjoy your new AI Clinical Assistant! 🦷✨**

@@ -1,7 +1,7 @@
 # AI Clinical Assistant Setup Guide
 
 ## Overview
-The AI Clinical Assistant is an intelligent chat interface powered by Google's Gemini AI that helps dental professionals with clinical decisions, treatment protocols, and patient care guidance.
+The AI Clinical Assistant is an intelligent chat interface powered by apifree.ai that helps dental professionals with clinical decisions, treatment protocols, and patient care guidance.
 
 ## Features
 - **Real-time AI Chat**: Interactive conversation with AI trained on dental knowledge
@@ -14,12 +14,12 @@ The AI Clinical Assistant is an intelligent chat interface powered by Google's G
 
 ## Setup Instructions
 
-### Step 1: Get Your Gemini API Key
+### Step 1: Get Your API Key
 
-1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Sign in with your Google account
-3. Click **"Create API Key"**
-4. Copy the generated API key (starts with `AIza...`)
+1. Visit [apifree.ai](https://apifree.ai)
+2. Sign in or create an account
+3. Navigate to API Keys management page
+4. Create a new API key and copy it
 
 ### Step 2: Configure Your Environment
 
@@ -30,15 +30,15 @@ The AI Clinical Assistant is an intelligent chat interface powered by Google's G
    d:\Dental Cloud Qoder\DentalCloud-by-Thuta\.env
    ```
 
-2. Add your Gemini API key:
+2. Add your AI API key:
    ```env
-   GEMINI_API_KEY=AIzaSyYourActualAPIKeyHere
+   AI_API_KEY=your_apifree_ai_api_key_here
    ```
 
 **Option B: Copy from template**
 
 1. Rename `.env.example` to `.env`
-2. Replace `your_gemini_api_key_here` with your actual API key
+2. Replace `your_apifree_ai_api_key_here` with your actual API key
 
 ### Step 3: File Location to Edit
 
@@ -49,7 +49,7 @@ d:\Dental Cloud Qoder\DentalCloud-by-Thuta\.env
 
 **What to add:**
 ```env
-GEMINI_API_KEY=AIzaSyD1234567890abcdefghijklmnopqrstuvwxyz
+AI_API_KEY=your_actual_key_here
 ```
 *(Replace with your actual key from Step 1)*
 
@@ -92,12 +92,12 @@ The AI Assistant works out-of-the-box with intelligent mock responses covering:
 - Training staff
 - Deciding if you want to use real AI
 
-## Real AI Mode (With Gemini API Key)
+## Real AI Mode (With API Key)
 
 Once configured, you get:
 - Dynamic responses to any dental question
 - Context-aware answers based on your practice data
-- Latest medical knowledge from Google's AI
+- Latest medical knowledge from advanced AI models
 - Natural conversation flow
 - More comprehensive clinical guidance
 
@@ -107,27 +107,25 @@ Once configured, you get:
 
 1. **Never commit .env to git** - The `.env` file is already in `.gitignore`
 2. **Keep your API key private** - Don't share it publicly
-3. **Free tier limits**: Gemini offers generous free quotas
-4. **Monitor usage**: Check your usage in Google AI Studio
+3. **Monitor usage**: Check your usage in apifree.ai dashboard
 
 ## Troubleshooting
 
 ### "Mock Mode Active" banner won't disappear
 - ✅ Check that `.env` file exists (not `.env.example`)
-- ✅ Verify API key starts with `AIza`
 - ✅ Restart the development server
 - ✅ Clear browser cache and refresh
 
 ### "API Connection Error" message
 - ✅ Check internet connection
 - ✅ Verify API key is correct (try creating a new one)
-- ✅ Check if API key has been revoked in Google AI Studio
+- ✅ Check if API key has been revoked in apifree.ai dashboard
 - ✅ Ensure no firewall blocking API requests
 
 ### API key not loading
 - ✅ File must be named exactly `.env` (with the dot)
 - ✅ Place in project root: `d:\Dental Cloud Qoder\DentalCloud-by-Thuta\.env`
-- ✅ Format: `GEMINI_API_KEY=your_key` (no spaces, no quotes)
+- ✅ Format: `AI_API_KEY=your_key` (no spaces, no quotes)
 - ✅ Server must be restarted after adding key
 
 ## Code Integration Points
@@ -137,7 +135,7 @@ If you want to customize the AI Assistant, here are the key files:
 ### Main Component
 **File:** `components/AIAssistantView.tsx`
 - Lines 8-12: Mock API key constant (for reference only)
-- Lines 84-155: Gemini API integration logic
+- Lines 84-155: AI API integration logic (apifree.ai)
 - Lines 158-430: Mock response simulation
 
 ### App Integration
@@ -150,7 +148,7 @@ If you want to customize the AI Assistant, here are the key files:
 
 ### Environment Configuration
 **File:** `vite.config.ts`
-- Lines 14-15: Environment variable exposure to client
+- Lines 14-15: Environment variable exposure to client (AI_API_KEY)
 
 ## Using the AI Assistant
 
@@ -191,14 +189,12 @@ If you want to customize the AI Assistant, here are the key files:
 For typical dental practice usage:
 - **Estimated**: 100-300 requests per day
 - **Cost**: Usually within free tier limits
-- **Monitor**: Check usage at [Google AI Studio](https://makersuite.google.com/)
+- **Monitor**: Check usage at [apifree.ai](https://apifree.ai)
 
 ## Support & Resources
 
-- **Gemini API Docs**: https://ai.google.dev/docs
-- **Get API Key**: https://makersuite.google.com/app/apikey
-- **API Pricing**: https://ai.google.dev/pricing
-- **Status Page**: https://status.cloud.google.com/
+- **API Provider**: https://apifree.ai
+- **Status Page**: Check provider website
 
 ## Future Enhancements (Coming Soon)
 
