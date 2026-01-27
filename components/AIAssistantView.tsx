@@ -40,7 +40,7 @@ const AIAssistantView: React.FC<AIAssistantViewProps> = ({
   medicines
 }) => {
   // Daily usage limit tracking
-  const DAILY_LIMIT = 3;
+  const DAILY_LIMIT = 4;
   const [dailyUsageCount, setDailyUsageCount] = useState<number>(() => {
     const today = new Date().toDateString();
     const savedData = localStorage.getItem('loli_usage');
