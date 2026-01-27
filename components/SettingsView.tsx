@@ -15,6 +15,8 @@ interface SettingsViewProps {
   onCreateLoyaltyRule: (data: Partial<LoyaltyRule>) => void;
   onDeleteLoyaltyRule?: (id: string) => void;
   onResetAllLoyaltyPoints?: () => void;
+  loyaltyEnabled: boolean;
+  onToggleLoyalty: (enabled: boolean) => void;
   isAdmin: boolean;
 }
 
@@ -30,6 +32,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({
   onCreateLoyaltyRule,
   onDeleteLoyaltyRule,
   onResetAllLoyaltyPoints,
+  loyaltyEnabled,
+  onToggleLoyalty,
   isAdmin 
 }) => {
   const [showLocModal, setShowLocModal] = useState(false);
@@ -204,24 +208,47 @@ const SettingsView: React.FC<SettingsViewProps> = ({
               <Award className="w-5 h-5 text-indigo-600" />
               <h3 className="text-lg font-semibold text-gray-800">Loyalty Rewards Program</h3>
             </div>
-            {isAdmin && (
-              <button 
-                onClick={() => {
-                  setEditingRuleId(null);
-                  setNewRule({ name: '', event_type: 'TREATMENT', points_per_unit: 0.001, active: true });
-                  setShowRuleModal(true);
-                }}
-                className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                <Plus size={14} /> Add Rule
-              </button>
-            )}
+            <div className="flex items-center gap-4">
+              {isAdmin && (
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    className="sr-only peer" 
+                    checked={loyaltyEnabled}
+                    onChange={(e) => onToggleLoyalty(e.target.checked)}
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                  <span className="ml-3 text-sm font-medium text-gray-700">{loyaltyEnabled ? 'System Enabled' : 'System Disabled'}</span>
+                </label>
+              )}
+              {isAdmin && loyaltyEnabled && (
+                <button 
+                  onClick={() => {
+                    setEditingRuleId(null);
+                    setNewRule({ name: '', event_type: 'TREATMENT', points_per_unit: 0.001, active: true });
+                    setShowRuleModal(true);
+                  }}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  <Plus size={14} /> Add Rule
+                </button>
+              )}
+            </div>
           </div>
-          <p className="text-sm text-gray-600 mb-6">
-            Configure how patients earn points for treatments and purchases.
-          </p>
           
-          <div className="space-y-4">
+          {!loyaltyEnabled ? (
+            <div className="bg-gray-50 border border-gray-200 p-8 rounded-xl text-center">
+              <Award className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500 font-medium">Loyalty points system is currently disabled for this practice.</p>
+              <p className="text-xs text-gray-400 mt-1">Enable it to start rewarding patients for their visits and treatments.</p>
+            </div>
+          ) : (
+            <>
+              <p className="text-sm text-gray-600 mb-6">
+                Configure how patients earn points for treatments and purchases.
+              </p>
+              
+              <div className="space-y-4">
             {loyaltyRules.length === 0 ? (
               <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl">
                 <div className="flex items-center gap-2 text-amber-800 font-bold text-sm mb-2">
@@ -276,6 +303,8 @@ const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
             )}
           </div>
+          </>
+          )}
         </div>
 
         {/* System Operations */}

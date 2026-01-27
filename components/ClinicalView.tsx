@@ -26,6 +26,7 @@ interface ClinicalViewProps {
   onToggleFlatRate: (value: boolean) => void;
   onUndoTreatment?: (record: ClinicalRecord) => void;
   onRedeemPoints?: (points: number, amount: number) => void;
+  loyaltyEnabled: boolean;
   loyaltyRules?: LoyaltyRule[];
   loyaltyTransactions?: LoyaltyTransaction[];
 }
@@ -52,6 +53,7 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
   onToggleFlatRate,
   onUndoTreatment,
   onRedeemPoints,
+  loyaltyEnabled,
   loyaltyRules = [],
   loyaltyTransactions = []
 }) => {
@@ -246,34 +248,40 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
                  </div>
                </div>
 
-               <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
-                 <div className="flex justify-between items-center mb-1">
-                   <p className="text-[10px] text-amber-600 uppercase font-bold tracking-wider">Loyalty Rewards</p>
-                   <Award size={14} className="text-amber-600" />
+               {loyaltyEnabled && selectedPatient && (
+                 <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
+                   <div className="flex justify-between items-center mb-1">
+                     <p className="text-[10px] text-amber-600 uppercase font-bold tracking-wider">Loyalty Rewards</p>
+                     <Award size={14} className="text-amber-600" />
+                   </div>
+                   <div className="flex justify-between items-baseline">
+                      <p className="text-3xl font-black text-amber-700">
+                        {selectedPatient.loyalty_points || 0} <span className="text-sm font-bold">Points</span>
+                      </p>
+                      {onRedeemPoints && canRedeem && (
+                        <button 
+                          onClick={() => {
+                            const input = prompt(`Enter points to redeem (Available: ${selectedPatient.loyalty_points}, Min: ${minRedeemPoints}):`, Math.min(selectedPatient.loyalty_points, 1000).toString());
+                            if (input) {
+                              const points = parseInt(input);
+                              if (isNaN(points) || points < minRedeemPoints || points > selectedPatient.loyalty_points) {
+                                alert(`Please enter a valid amount between ${minRedeemPoints} and ${selectedPatient.loyalty_points}.`);
+                                return;
+                              }
+                              const amount = points * redemptionRate;
+                              if(confirm(`Redeem ${points} points for ${formatCurrency(amount, currency)} discount?`)) {
+                                onRedeemPoints(points, amount);
+                              }
+                            }
+                          }}
+                          className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1"
+                        >
+                          <Zap size={12} /> Redeem Points
+                        </button>
+                      )}
+                   </div>
                  </div>
-                 <div className="flex justify-between items-baseline">
-                    <p className="text-3xl font-black text-amber-700">
-                      {selectedPatient.loyalty_points || 0} <span className="text-sm font-bold">Points</span>
-                    </p>
-                    {onRedeemPoints && canRedeem && (
-                      <button 
-                        onClick={() => {
-                          const points = Math.min(selectedPatient.loyalty_points, 5000); // Cap at 5000 points per redemption
-                          const amount = points * redemptionRate;
-                          if(confirm(`Redeem ${points} points for ${formatCurrency(amount, currency)} discount?`)) {
-                            onRedeemPoints(points, amount);
-                          }
-                        }}
-                        className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1"
-                      >
-                        <Zap size={12} /> Redeem
-                      </button>
-                    )}
-                 </div>
-                 <p className="text-[10px] text-amber-600/70 mt-1">
-                   1 Point = {redemptionRate} {currency} discount (Min {minRedeemPoints} points to redeem)
-                 </p>
-               </div>
+               )}
 
                <div className={`p-4 rounded-xl border ${selectedPatient.medicalHistory ? 'bg-orange-50 border-orange-100' : 'bg-gray-50 border-gray-100'}`}>
                  <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1">Medical Alerts</p>
@@ -307,7 +315,7 @@ const ClinicalView: React.FC<ClinicalViewProps> = ({
              </div>
 
              {/* Loyalty History */}
-             {loyaltyTransactions.length > 0 && (
+             {loyaltyEnabled && loyaltyTransactions.length > 0 && (
                <div className="mt-6">
                  <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Recent Points Activity</h4>
                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">

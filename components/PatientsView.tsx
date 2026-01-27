@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Plus, Loader2, ChevronRight, FileDown, Award } from 'lucide-react';
-import { Patient } from '../types';
+import { Patient, LoyaltyRule } from '../types';
 import { formatCurrency, Currency } from '../utils/currency';
 import { exportPatientsToPDF } from '../utils/pdfExport';
 import Pagination from './Pagination';
@@ -11,9 +11,12 @@ interface PatientsViewProps {
   currency: Currency;
   onSelectPatient: (patient: Patient) => void;
   onAddPatient: () => void;
+  onRedeemPoints?: (patient: Patient, points: number, amount: number) => void;
+  loyaltyEnabled: boolean;
+  loyaltyRules?: LoyaltyRule[];
 }
 
-const PatientsView: React.FC<PatientsViewProps> = ({ patients, loading, currency, onSelectPatient, onAddPatient }) => {
+const PatientsView: React.FC<PatientsViewProps> = ({ patients, loading, currency, onSelectPatient, onAddPatient, onRedeemPoints, loyaltyEnabled, loyaltyRules = [] }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showAll, setShowAll] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -46,6 +49,14 @@ const PatientsView: React.FC<PatientsViewProps> = ({ patients, loading, currency
   const handleDownloadPDF = () => {
     exportPatientsToPDF(patients, currency);
   };
+
+  // Get redemption rule
+  const redeemRule = useMemo(() => {
+    return loyaltyRules.find(r => r.event_type === 'REDEEM' && r.active);
+  }, [loyaltyRules]);
+
+  const redemptionRate = redeemRule ? redeemRule.points_per_unit : 1; // Default 1 MMK per point
+  const minRedeemPoints = redeemRule ? (redeemRule.min_amount || 0) : 500;
 
   return (
   <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden animate-fade-in">
@@ -95,7 +106,7 @@ const PatientsView: React.FC<PatientsViewProps> = ({ patients, loading, currency
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Patient Name</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Contact Info</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Medical Status</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Loyalty Points</th>
+                {loyaltyEnabled && <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Loyalty Points</th>}
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Current Balance</th>
                 <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
@@ -122,12 +133,14 @@ const PatientsView: React.FC<PatientsViewProps> = ({ patients, loading, currency
                       {patient.medicalHistory ? 'Review Required' : 'No Alerts'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <div className="flex items-center gap-1.5 text-amber-600 font-bold">
-                      <Award size={14} />
-                      {patient.loyalty_points || 0}
-                    </div>
-                  </td>
+                  {loyaltyEnabled && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <div className="flex items-center gap-1.5 text-amber-600 font-bold">
+                        <Award size={14} />
+                        {patient.loyalty_points || 0}
+                      </div>
+                    </td>
+                  )}
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     {patient.balance > 0 ? (
                       <span className="text-red-600 font-bold bg-red-50 px-2 py-1 rounded border border-red-100">{formatCurrency(patient.balance || 0, currency)}</span>
@@ -136,9 +149,33 @@ const PatientsView: React.FC<PatientsViewProps> = ({ patients, loading, currency
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button className="text-indigo-600 hover:text-indigo-900 flex items-center gap-1 ml-auto">
-                      View Chart <ChevronRight size={14} />
-                    </button>
+                    <div className="flex justify-end gap-2">
+                      {loyaltyEnabled && onRedeemPoints && (patient.loyalty_points >= minRedeemPoints) && (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const input = prompt(`Redeem points for ${patient.name} (Available: ${patient.loyalty_points}, Min: ${minRedeemPoints}):`, Math.min(patient.loyalty_points, 1000).toString());
+                            if (input) {
+                              const points = parseInt(input);
+                              if (isNaN(points) || points < minRedeemPoints || points > patient.loyalty_points) {
+                                alert(`Please enter a valid amount between ${minRedeemPoints} and ${patient.loyalty_points}.`);
+                                return;
+                              }
+                              const amount = points * redemptionRate;
+                              if(confirm(`Redeem ${points} points for ${formatCurrency(amount, currency)} discount?`)) {
+                                onRedeemPoints(patient, points, amount);
+                              }
+                            }
+                          }}
+                          className="text-amber-600 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-2 py-1 rounded flex items-center gap-1 transition-colors"
+                        >
+                          <Award size={14} /> Redeem
+                        </button>
+                      )}
+                      <button className="text-indigo-600 hover:text-indigo-900 flex items-center gap-1">
+                        View Chart <ChevronRight size={14} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -167,19 +204,21 @@ const PatientsView: React.FC<PatientsViewProps> = ({ patients, loading, currency
                 <ChevronRight size={18} className="text-gray-300" />
               </div>
               
-              <div className="grid grid-cols-2 gap-2 mt-4">
+              <div className={`grid ${loyaltyEnabled ? 'grid-cols-2' : 'grid-cols-1'} gap-2 mt-4`}>
                 <div className="bg-gray-50 p-2 rounded-lg">
                   <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-0.5">Balance</p>
                   <p className={`text-sm font-bold ${patient.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
                     {formatCurrency(patient.balance || 0, currency)}
                   </p>
                 </div>
-                <div className="bg-amber-50 p-2 rounded-lg">
-                  <p className="text-[10px] text-amber-600 uppercase font-bold tracking-wider mb-0.5">Points</p>
-                  <p className="text-sm font-bold text-amber-700 flex items-center gap-1">
-                    <Award size={12} /> {patient.loyalty_points || 0}
-                  </p>
-                </div>
+                {loyaltyEnabled && (
+                  <div className="bg-amber-50 p-2 rounded-lg">
+                    <p className="text-[10px] text-amber-600 uppercase font-bold tracking-wider mb-0.5">Points</p>
+                    <p className="text-sm font-bold text-amber-700 flex items-center gap-1">
+                      <Award size={12} /> {patient.loyalty_points || 0}
+                    </p>
+                  </div>
+                )}
               </div>
               
               {patient.medicalHistory && (

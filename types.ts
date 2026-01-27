@@ -127,6 +127,10 @@ export interface MedicineSale {
   treatment_id?: string; // Optional: link to treatment if sold with treatment
 }
 
+export interface ClinicSettings {
+  loyalty_enabled: boolean;
+}
+
 export interface LoyaltyRule {
   id: string;
   location_id: string;

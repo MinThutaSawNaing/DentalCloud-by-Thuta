@@ -116,10 +116,19 @@ const App: React.FC = () => {
     const savedCurrency = localStorage.getItem('currency');
     return (savedCurrency === 'USD' || savedCurrency === 'MMK') ? savedCurrency : 'USD';
   });
+  const [loyaltyEnabled, setLoyaltyEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem('loyalty_enabled');
+    return saved === null ? true : saved === 'true';
+  });
   
   const handleCurrencyChange = (newCurrency: 'USD' | 'MMK') => {
     setCurrency(newCurrency);
     localStorage.setItem('currency', newCurrency);
+  };
+
+  const handleToggleLoyalty = (enabled: boolean) => {
+    setLoyaltyEnabled(enabled);
+    localStorage.setItem('loyalty_enabled', String(enabled));
   };
   const [sidebarWidth, setSidebarWidth] = useState(256);
   const [isResizing, setIsResizing] = useState(false);
@@ -623,11 +632,18 @@ const App: React.FC = () => {
     }
   };
 
-  const handleRedeemPoints = async (points: number, amount: number) => {
-    if (!selectedPatient) return;
+  const handleRedeemPoints = async (points: number, amount: number, patientObj?: Patient) => {
+    const targetPatient = patientObj || selectedPatient;
+    if (!targetPatient) return;
     try {
-      const res = await api.loyalty.redeemPoints(selectedPatient.id, currentLocationId, points, amount);
-      setSelectedPatient({ ...selectedPatient, balance: res.new_balance, loyalty_points: res.new_points });
+      const res = await api.loyalty.redeemPoints(targetPatient.id, currentLocationId, points, amount);
+      if (patientObj) {
+        // Update in list
+        setPatients(prev => prev.map(p => p.id === targetPatient.id ? { ...p, balance: res.new_balance, loyalty_points: res.new_points } : p));
+      }
+      if (selectedPatient && targetPatient.id === selectedPatient.id) {
+        setSelectedPatient({ ...selectedPatient, balance: res.new_balance, loyalty_points: res.new_points });
+      }
       alert(`Redeemed ${points} points for ${amount} MMK discount!`);
     } catch (err: any) {
       alert(err.message);
@@ -937,7 +953,16 @@ const App: React.FC = () => {
         <div className="max-w-6xl mx-auto">
           <Suspense fallback={<div className="flex justify-center p-20"><Loader2 className="animate-spin text-indigo-600 w-10 h-10" /></div>}>
             {currentView === 'dashboard' && <DashboardView patients={patients} appointments={appointments} treatmentRecords={globalRecords} currency={currency} />}
-            {currentView === 'patients' && <PatientsView patients={patients} loading={loading} currency={currency} onSelectPatient={handlePatientSelect} onAddPatient={() => setShowPatientModal(true)} />}
+            {currentView === 'patients' && <PatientsView 
+                patients={patients} 
+                loading={loading} 
+                currency={currency} 
+                loyaltyEnabled={loyaltyEnabled} 
+                loyaltyRules={loyaltyRules}
+                onSelectPatient={handlePatientSelect} 
+                onAddPatient={() => setShowPatientModal(true)} 
+                onRedeemPoints={(patient, points, amount) => handleRedeemPoints(points, amount, patient)}
+            />}
             {currentView === 'appointments' && <AppointmentsView appointments={appointments} loading={loading} onAddAppointment={() => {setEditingAppointment(null); setNewAppointmentData({ date: '', time: '', type: 'Checkup', status: 'Scheduled', patient_id: '', doctor_id: '' }); setAvailableTimes([]); setShowAppointmentModal(true)}} onEditAppointment={(apt) => {setEditingAppointment(apt); setNewAppointmentData({ date: apt.date, time: apt.time, type: apt.type || 'Checkup', status: apt.status, patient_id: apt.patient_id, doctor_id: apt.doctor_id, notes: apt.notes }); if (apt.doctor_id && apt.date) fetchAvailableTimes(apt.doctor_id, apt.date); setShowAppointmentModal(true)}} onDeleteAppointment={handleDeleteAppointment} onUpdateStatus={handleUpdateAppointmentStatus} />}
             {currentView === 'doctors' && <DoctorsView doctors={doctors} loading={loading} onAdd={() => {setEditingDoctor(null); setNewDoctorData({ name: '', email: '', phone: '', specialization: '', schedules: [] }); setShowDoctorModal(true)}} onEdit={(doc) => {setEditingDoctor(doc); setNewDoctorData(doc); setShowDoctorModal(true)}} onDelete={handleDeleteDoctor} />}
             {currentView === 'treatments' && <TreatmentConfigView treatmentTypes={treatmentTypes} currency={currency} onAdd={() => {setEditingTreatmentType(null); setShowTreatmentTypeModal(true)}} onEdit={(t) => {setEditingTreatmentType(t); setNewTreatmentTypeData(t); setShowTreatmentTypeModal(true)}} onDelete={handleDeleteTreatmentType} />}
@@ -956,6 +981,8 @@ const App: React.FC = () => {
                 onCreateLoyaltyRule={handleCreateLoyaltyRule} 
                 onDeleteLoyaltyRule={handleDeleteLoyaltyRule}
                 onResetAllLoyaltyPoints={handleResetAllLoyaltyPoints}
+                loyaltyEnabled={loyaltyEnabled}
+                onToggleLoyalty={handleToggleLoyalty}
                 isAdmin={isAdmin} 
             />}
             {currentView === 'ai-assistant' && <AIAssistantView patients={patients} treatmentRecords={globalRecords} />}
@@ -981,6 +1008,7 @@ const App: React.FC = () => {
                 onToggleFlatRate={setUseFlatRate}
                 onUndoTreatment={handleUndoTreatment}
                 onRedeemPoints={handleRedeemPoints}
+                loyaltyEnabled={loyaltyEnabled}
                 loyaltyRules={loyaltyRules}
                 loyaltyTransactions={loyaltyTransactions}
             />}
