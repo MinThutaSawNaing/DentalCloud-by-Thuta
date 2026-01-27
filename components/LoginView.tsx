@@ -252,14 +252,6 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             </form>
 
             <div className="mt-6 pt-5 border-t border-gray-100">
-              <div className="text-center">
-                <p className="text-xs text-gray-500 font-medium mb-1">
-                  Default admin credentials:
-                </p>
-                <p className="text-xs text-gray-600 bg-gray-50 rounded-lg py-1.5 px-2.5 inline-block font-mono">
-                  admin / admin123
-                </p>
-              </div>
               
               <div className="mt-4 flex items-center justify-center gap-1 text-xs text-gray-400">
                 <Lock className="w-3 h-3" />
