@@ -211,10 +211,26 @@ How can I assist you today?
   };
 
   const saveSession = (newMessages: Message[]) => {
+    // If there's no current session, create one
     if (!currentSessionId) {
-      createNewSession();
+      const sessionId = Date.now().toString();
+      const newSession: ChatSession = {
+        id: sessionId,
+        title: newMessages.find(m => m.role === 'user')?.content.substring(0, 30) + '...' || 'New Conversation',
+        messages: newMessages,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      const updated = [newSession, ...chatSessions];
+      setChatSessions(updated);
+      setCurrentSessionId(sessionId);
+      setMessages(newMessages);
+      localStorage.setItem('loli_chat_sessions', JSON.stringify(updated));
+      localStorage.setItem('loli_current_session', sessionId);
       return;
     }
+    
     const updated = chatSessions.map(s => {
       if (s.id === currentSessionId) {
         const userMsg = newMessages.find(m => m.role === 'user');
@@ -271,7 +287,13 @@ How can I assist you today?
       ta: appointments.filter(a => a.status === 'Scheduled' && a.date === today).map(a => ({ p: a.patient_name, d: a.doctor_name, t: a.time })), // today's appointments
       ua: appointments.filter(a => a.status === 'Scheduled' && a.date >= today).slice(0, 5).map(a => ({ p: a.patient_name, d: a.doctor_name, dt: a.date, t: a.time })),
       tr: treatmentRecords.slice(0, 5).map(r => ({ p: r.patient_name, d: r.description, dt: r.date })),
-      ls: medicines.filter(m => m.stock <= (m.min_stock || 0)).map(m => ({ n: m.name, q: m.stock }))
+      ls: medicines.filter(m => m.stock <= (m.min_stock || 0)).map(m => ({ n: m.name, q: m.stock })),
+      inv: { // inventory stats
+        total_items: medicines.length,
+        total_stock: medicines.reduce((sum, med) => sum + (med.stock || 0), 0),
+        low_stock_count: medicines.filter(m => m.stock <= (m.min_stock || 0)).length,
+        top_items: medicines.sort((a, b) => b.stock - a.stock).slice(0, 5).map(m => ({ n: m.name, q: m.stock, c: m.category }))
+      }
     };
   };
 
@@ -312,8 +334,8 @@ I'm **Loli**, an AI model trained by **WinterArc Myanmar**, specially designed b
       const systemPrompt = `You are Loli, a dental AI assistant by WinterArc Myanmar, designed by Min Thuta Saw Naing.
 Today: ${contextData.td}
 Practice Data (Compressed): ${JSON.stringify(contextData)}
-Keys: td=today, s=stats(p:patients,a:apps,d:docs,t:treatments,m:meds), dr=doctors, ta=today's apps, ua=upcoming apps, tr=recent treatments, ls=low stock meds.
-Provide clinical/practice advice. Verification by pros required. Identity: Loli by WinterArc Myanmar.`;
+Keys: td=today, s=stats(p:patients,a:apps,d:docs,t:treatments,m:meds), dr=doctors, ta=today's apps, ua=upcoming apps, tr=recent treatments, ls=low stock meds, inv=inventory(total_items, total_stock, low_stock_count, top_items).
+Provide clinical/practice advice. Answer inventory questions when asked. Verification by pros required. Identity: Loli by WinterArc Myanmar.`;
 
       const response = await fetch(
         `https://api.apifree.ai/v1/chat/completions`,
@@ -628,6 +650,21 @@ ${contextData.tr.map(r =>
 ).join('\n')}
 
 💡 *This is real data from your practice. What specific aspect would you like to discuss?*`);
+        } else if (lowerMessage.includes('inventory') || lowerMessage.includes('stock') || lowerMessage.includes('item') || lowerMessage.includes('medicine') || lowerMessage.includes('medication')) {
+          const contextData = getContextualData();
+          resolve(`📦 **Inventory Overview:**
+
+**Current Stock Summary:**
+- Total Items: ${contextData.inv.total_items}
+- Total Stock Count: ${contextData.inv.total_stock}
+- Low Stock Items: ${contextData.inv.low_stock_count}
+
+**Top 5 Items by Quantity:**
+${contextData.inv.top_items.map(item => 
+  `• ${item.n}: ${item.q} units${item.c ? ` (${item.c})` : ''}`
+).join('\n')}
+
+💡 *This is real-time inventory data from your clinic. What specific inventory information do you need?*`);
         } else {
           resolve(`🤖 **I'm here to help with clinical dental assistance!**
 
