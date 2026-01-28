@@ -846,13 +846,52 @@ Thank you for using Loli! 🦷✨`,
     try {
       const aiResponse = await callAICompletionAPI(userMessage.content);
       
+      // Debug logging to see the AI response
+      console.log('AI Response:', aiResponse);
+      
       // Parse for action JSON block with improved validation
       let actionResult = '';
       // More precise regex to capture complete JSON objects with "action" property
       const actionMatch = aiResponse.match(/\{[^{}]*"action"\s*:\s*"[^"]*"[^{}]*\}/);
       
+      // Debug logging to see if action match was found
+      
+      if (!actionMatch) {
+        // Try to find the JSON action block by looking for "action" string
+        console.log('Regex did not match. Looking for JSON action blocks in the response.');
+        // Let's try a different approach by manually parsing the response
+        console.log('Attempting manual parsing of AI response');
+        // Look for JSON objects containing "action"
+        let manualMatch = null;
+        const openBraces = [];
+        for (let i = 0; i < aiResponse.length; i++) {
+          if (aiResponse[i] === '{') {
+            openBraces.push(i);
+          } else if (aiResponse[i] === '}' && openBraces.length > 0) {
+            const start = openBraces.pop();
+            const potentialJson = aiResponse.substring(start, i + 1);
+            if (potentialJson.includes('"action"')) {
+              manualMatch = [potentialJson];
+              console.log('Found potential JSON action block:', potentialJson);
+              break;
+            }
+          }
+        }
+        
+        if (manualMatch) {
+          actionMatch = manualMatch;
+          console.log('Manual parsing found action block:', manualMatch[0]);
+        } else {
+          console.log('Manual parsing also failed to find action block');
+        }
+      }
+      
+      console.log('Action Match:', actionMatch);
+      
       if (actionMatch) {
         try {
+          // Debug logging to confirm we're inside the action match block
+          console.log('Found action match, proceeding with action execution');
           // Validate JSON structure before parsing
           const jsonString = actionMatch[0].trim();
           // Ensure proper JSON formatting
@@ -1047,8 +1086,11 @@ Thank you for using Loli! 🦷✨`,
             actionResult = `❌ Failed to perform action: ${err.message}`;
           }
         }
+      } else {
+        // Debug logging when no action match is found
+        console.log('No action match found in AI response');
       }
-
+            
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
