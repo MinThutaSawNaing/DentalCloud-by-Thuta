@@ -11,8 +11,7 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [captchaAnswer, setCaptchaAnswer] = useState('');
-  const [captchaNum1, setCaptchaNum1] = useState(0);
-  const [captchaNum2, setCaptchaNum2] = useState(0);
+  const [captchaDigits, setCaptchaDigits] = useState<number[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -20,10 +19,8 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
 
   // Generate new CAPTCHA
   const generateCaptcha = () => {
-    const num1 = Math.floor(Math.random() * 10) + 1; // 1-10
-    const num2 = Math.floor(Math.random() * 10) + 1; // 1-10
-    setCaptchaNum1(num1);
-    setCaptchaNum2(num2);
+    const digits = Array.from({ length: 4 }, () => Math.floor(Math.random() * 10)); // 4 random digits 0-9
+    setCaptchaDigits(digits);
     setCaptchaAnswer('');
   };
 
@@ -37,15 +34,14 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
     setLoading(true);
 
     try {
-      const answer = parseInt(captchaAnswer);
-      if (isNaN(answer)) {
-        setError('Please enter a valid number for CAPTCHA');
+      if (captchaAnswer.length !== 4 || !/^[0-9]{4}$/.test(captchaAnswer)) {
+        setError('Please enter exactly 4 digits for CAPTCHA');
         setLoading(false);
         return;
       }
 
-      const expected = captchaNum1 + captchaNum2;
-      await auth.login(username, password, answer, expected);
+      const expected = captchaDigits.join('');
+      await auth.login(username, password, captchaAnswer, expected);
       onLoginSuccess();
     } catch (err: any) {
       setError(err.message || 'Login failed. Please try again.');
@@ -177,11 +173,12 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                   VERIFICATION
                 </label>
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 flex items-center justify-center gap-1 border-2 border-dashed border-gray-200 rounded-lg p-2 bg-gray-50">
-                    <span className="text-sm font-bold text-gray-700">{captchaNum1}</span>
-                    <span className="text-gray-400 text-sm">+</span>
-                    <span className="text-sm font-bold text-gray-700">{captchaNum2}</span>
-                    <span className="text-gray-400 text-sm">=</span>
+                  <div className="flex-1 flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-lg p-2 bg-gray-50">
+                    {captchaDigits.map((digit, index) => (
+                      <span key={index} className="text-lg font-bold text-gray-700 w-6 h-6 flex items-center justify-center bg-white rounded border border-gray-200">
+                        {digit}
+                      </span>
+                    ))}
                   </div>
                   <button
                     type="button"
@@ -194,11 +191,15 @@ const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                 </div>
                 <div className="mt-1.5">
                   <input
-                    type="number"
+                    type="text"
                     value={captchaAnswer}
-                    onChange={(e) => setCaptchaAnswer(e.target.value)}
-                    placeholder="Enter answer to verify"
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+                      setCaptchaAnswer(value);
+                    }}
+                    placeholder="Enter the 4 digits shown above"
                     required
+                    maxLength={4}
                     className="w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-gray-50 focus:bg-white text-sm"
                   />
                 </div>
