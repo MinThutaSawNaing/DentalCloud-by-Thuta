@@ -361,6 +361,16 @@ How can I assist you today?
     };
   };
 
+  // Helper function to validate JSON
+  const isValidJson = (str: string): boolean => {
+    try {
+      JSON.parse(str);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  };
+
   const API_DOCS = `
 ACTIONS (Available in all modes):
 - apt_c(p_id, dr_id, dt, t, ty, n): Create appointment. p_id=patient id, dr_id=doctor id, dt=date(YYYY-MM-DD), t=time(HH:mm), ty=type, n=notes.
@@ -376,8 +386,13 @@ ACTIONS (Available in all modes):
 
 To perform an action, include a JSON block at the END of your message:
 { "action": "ACTION_NAME", "params": { ... } }
-Only perform actions if explicitly requested or clearly intended.
-`;
+
+Examples:
+{ "action": "p_c", "params": { "n": "John Doe", "e": "john@example.com", "ph": "1234567890", "m": "No known allergies" } }
+{ "action": "apt_c", "params": { "p_id": "patient123", "dr_id": "doctor456", "dt": "2024-01-15", "t": "10:00", "ty": "Checkup", "n": "Routine checkup" } }
+
+Only perform actions if explicitly requested or clearly intended. Ensure JSON is properly formatted with correct syntax.
+`
 
   const callAICompletionAPI = async (userMessage: string): Promise<string> => {
     const apiKey = process.env.AI_API_KEY || MOCK_API_KEY;
@@ -831,13 +846,28 @@ Thank you for using Loli! 🦷✨`,
     try {
       const aiResponse = await callAICompletionAPI(userMessage.content);
       
-      // Parse for action JSON block
+      // Parse for action JSON block with improved validation
       let actionResult = '';
-      const actionMatch = aiResponse.match(/\{[\s\S]*?"action"[\s\S]*?\}/);
+      // More precise regex to capture complete JSON objects with "action" property
+      const actionMatch = aiResponse.match(/\{[^{}]*"action"\s*:\s*"[^"]*"[^{}]*\}/);
       
       if (actionMatch) {
         try {
-          const actionObj = JSON.parse(actionMatch[0]);
+          // Validate JSON structure before parsing
+          const jsonString = actionMatch[0].trim();
+          // Ensure proper JSON formatting
+          const sanitizedJson = jsonString
+            .replace(/\s+/g, ' ') // Normalize whitespace
+            .replace(/\s*([{}:,])\s*/g, '$1') // Remove extra spaces around JSON syntax
+            .replace(/,\s*\}/g, '}') // Remove trailing commas
+            .replace(/,\s*\]/g, ']'); // Remove trailing commas in arrays
+          
+          // Validate the sanitized JSON
+          if (!isValidJson(sanitizedJson)) {
+            throw new SyntaxError(`Invalid JSON format after sanitization: ${sanitizedJson}`);
+          }
+          
+          const actionObj = JSON.parse(sanitizedJson);
           const { action, params } = actionObj;
           
           let result: any;
@@ -920,7 +950,21 @@ Thank you for using Loli! 🦷✨`,
           }
         } catch (err: any) {
           console.error('Action Execution Error:', err);
-          actionResult = `❌ Failed to perform action: ${err.message}`;
+          // Log the problematic JSON for debugging
+          if (actionMatch && actionMatch[0]) {
+            console.error('Problematic JSON:', actionMatch[0]);
+            console.error('Sanitized JSON:', actionMatch[0]
+              .replace(/\s+/g, ' ')
+              .replace(/\s*([{}:,])\s*/g, '$1')
+              .replace(/,\s*\}/g, '}')
+              .replace(/,\s*\]/g, ']'));
+          }
+          // Provide more specific error messages
+          if (err instanceof SyntaxError) {
+            actionResult = `❌ Failed to parse action JSON. Please check the format: ${err.message}`;
+          } else {
+            actionResult = `❌ Failed to perform action: ${err.message}`;
+          }
         }
       }
 
