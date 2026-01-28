@@ -362,7 +362,7 @@ How can I assist you today?
   };
 
   const API_DOCS = `
-ACTIONS (Only if mode is AGENT):
+ACTIONS (Available in all modes):
 - apt_c(p_id, dr_id, dt, t, ty, n): Create appointment. p_id=patient id, dr_id=doctor id, dt=date(YYYY-MM-DD), t=time(HH:mm), ty=type, n=notes.
 - apt_u(id, data): Update appointment. data can include {date, time, status, doctor_id, etc}.
 - apt_d(id): Delete appointment.
@@ -421,7 +421,7 @@ ${isAgentMode ? '• **Manage clinic data through direct API actions**' : ''}
       const contextData = getContextualData(isActionIntent || isAgentMode);
       const systemPrompt = `You are Loli, a dental AI assistant by WinterArc Myanmar, designed by Min Thuta Saw Naing.
 Today: ${contextData.td}
-Current Mode: ${isAgentMode ? 'AGENT (Actions enabled)' : 'ASK (Read-only)'}
+Current Mode: ${isAgentMode ? 'AGENT (Actions enabled)' : 'ASK (Read-only)'}, but actions can be performed in any mode.
 Practice Data: ${JSON.stringify(contextData)}
 ${isAgentMode || isActionIntent ? API_DOCS : 'You are in ASK mode. If the user wants to perform a task like booking or adding data, suggest they switch to Agent Mode.'}
 Verification by pros required. Identity: Loli by WinterArc Myanmar.`;
@@ -835,7 +835,7 @@ Thank you for using Loli! 🦷✨`,
       let actionResult = '';
       const actionMatch = aiResponse.match(/\{[\s\S]*?"action"[\s\S]*?\}/);
       
-      if (actionMatch && mode === 'agent') {
+      if (actionMatch) {
         try {
           const actionObj = JSON.parse(actionMatch[0]);
           const { action, params } = actionObj;
