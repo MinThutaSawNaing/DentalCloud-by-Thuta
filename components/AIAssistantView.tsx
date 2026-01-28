@@ -845,23 +845,14 @@ Thank you for using Loli! 🦷✨`,
 
     try {
       const aiResponse = await callAICompletionAPI(userMessage.content);
-      
-      // Debug logging to see the AI response
-      console.log('AI Response:', aiResponse);
-      
+          
       // Parse for action JSON block with improved validation
       let actionResult = '';
       // More precise regex to capture complete JSON objects with "action" property
-      const actionMatch = aiResponse.match(/\{[^{}]*"action"\s*:\s*"[^"]*"[^{}]*\}/);
-      
-      // Debug logging to see if action match was found
-      
+      let actionMatch = aiResponse.match(/\{[^{}]*"action"\s*:\s*"[^"]*"[^{}]*\}/);
+          
       if (!actionMatch) {
-        // Try to find the JSON action block by looking for "action" string
-        console.log('Regex did not match. Looking for JSON action blocks in the response.');
-        // Let's try a different approach by manually parsing the response
-        console.log('Attempting manual parsing of AI response');
-        // Look for JSON objects containing "action"
+        // Fallback: manual parsing to find JSON objects containing "action"
         let manualMatch = null;
         const openBraces = [];
         for (let i = 0; i < aiResponse.length; i++) {
@@ -872,26 +863,18 @@ Thank you for using Loli! 🦷✨`,
             const potentialJson = aiResponse.substring(start, i + 1);
             if (potentialJson.includes('"action"')) {
               manualMatch = [potentialJson];
-              console.log('Found potential JSON action block:', potentialJson);
               break;
             }
           }
         }
-        
+            
         if (manualMatch) {
           actionMatch = manualMatch;
-          console.log('Manual parsing found action block:', manualMatch[0]);
-        } else {
-          console.log('Manual parsing also failed to find action block');
         }
       }
-      
-      console.log('Action Match:', actionMatch);
-      
+          
       if (actionMatch) {
         try {
-          // Debug logging to confirm we're inside the action match block
-          console.log('Found action match, proceeding with action execution');
           // Validate JSON structure before parsing
           const jsonString = actionMatch[0].trim();
           // Ensure proper JSON formatting
@@ -900,25 +883,18 @@ Thank you for using Loli! 🦷✨`,
             .replace(/\s*([{}:,])\s*/g, '$1') // Remove extra spaces around JSON syntax
             .replace(/,\s*\}/g, '}') // Remove trailing commas
             .replace(/,\s*\]/g, ']'); // Remove trailing commas in arrays
-          
+              
           // Validate the sanitized JSON
           if (!isValidJson(sanitizedJson)) {
             throw new SyntaxError(`Invalid JSON format after sanitization: ${sanitizedJson}`);
           }
-          
+              
           const actionObj = JSON.parse(sanitizedJson);
           const { action, params } = actionObj;
-          
+              
           let result: any;
           const locationId = users[0]?.location_id || 'main';
-          
-          // Debug logging
-          console.log('Action execution debug info:');
-          console.log('Action:', action);
-          console.log('Params:', params);
-          console.log('Location ID:', locationId);
-          console.log('Users array:', users);
-
+              
           switch (action) {
             case 'apt_c':
               try {
@@ -958,23 +934,6 @@ Thank you for using Loli! 🦷✨`,
               break;
             case 'p_c':
               try {
-                // Test the API call with debug logging
-                console.log('Creating patient with data:', { 
-                  location_id: locationId,
-                  name: params.n,
-                  email: params.e,
-                  phone: params.ph,
-                  medicalHistory: params.m
-                });
-                
-                // Test database connection and table existence
-                try {
-                  const testPatients = await api.patients.getAll();
-                  console.log('Test fetch of patients:', testPatients);
-                } catch (testError) {
-                  console.error('Test fetch of patients failed:', testError);
-                }
-                
                 result = await api.patients.create({ 
                   location_id: locationId,
                   name: params.n,
@@ -982,16 +941,9 @@ Thank you for using Loli! 🦷✨`,
                   phone: params.ph,
                   medicalHistory: params.m
                 });
-                
-                console.log('Patient creation result:', result);
                 actionResult = `✅ Patient ${result.name} added successfully.`;
               } catch (err: any) {
                 console.error('Patient creation error:', err);
-                console.error('Error details:', {
-                  message: err.message,
-                  stack: err.stack,
-                  name: err.name
-                });
                 throw new Error(`Failed to create patient: ${err.message}`);
               }
               break;

@@ -16,16 +16,11 @@ export const api = {
   locations: {
     getAll: async (): Promise<Location[]> => {
       try {
-        console.log('API locations getAll called');
         const { data, error } = await supabase
           .from('locations')
           .select('*')
           .order('name');
-        console.log('Database response for locations getAll:', { data, error });
-        if (error) {
-          console.error('Database error in locations getAll:', error);
-          throw error;
-        }
+        if (error) throw error;
         return data || [];
       } catch (err) {
         console.warn("Error fetching locations:", err);
@@ -33,17 +28,12 @@ export const api = {
       }
     },
     create: async (data: Partial<Location>): Promise<Location> => {
-      console.log('API locations create called with data:', data);
       const { data: result, error } = await supabase
         .from('locations')
         .insert(data)
         .select()
         .single();
-      console.log('Database response for location create:', { result, error });
-      if (error) {
-        console.error('Database error in location create:', error);
-        throw new Error(error.message);
-      }
+      if (error) throw new Error(error.message);
       return result;
     }
   },
@@ -51,8 +41,6 @@ export const api = {
   patients: {
     getAll: async (locationId?: string): Promise<Patient[]> => {
       try {
-        console.log('API patients getAll called with locationId:', locationId);
-        
         let query = supabase
           .from('patients')
           .select('id, location_id, name, email, phone, balance, loyalty_points, medical_history, created_at')
@@ -64,60 +52,37 @@ export const api = {
         
         const { data, error } = await query;
         
-        console.log('Database response for getAll:', { data, error });
-        
-        if (error) {
-          console.error('Database error in getAll:', error);
-          throw error;
-        }
-        
-        const mappedData = (data || []).map(mapPatient);
-        console.log('Mapped data:', mappedData);
-        return mappedData;
+        if (error) throw error;
+        return (data || []).map(mapPatient);
       } catch (err) {
         console.warn("Error fetching patients:", err);
         return []; // Return empty array instead of crashing
       }
     },
     create: async (data: Partial<Patient>): Promise<Patient> => {
-      console.log('API patient create called with data:', data);
-      
       // First, check if the patients table exists
       try {
-        const { data: tableInfo, error: tableError } = await supabase
+        const { error: tableError } = await supabase
           .from('patients')
           .select('id')
           .limit(1);
         
-        if (tableError) {
-          console.error('Patients table check failed:', tableError);
-          // If the table doesn't exist, we might need to create it or handle this differently
-          throw new Error(`Patients table access failed: ${tableError.message}`);
-        }
-        
-        console.log('Patients table exists and is accessible');
-      } catch (tableCheckError) {
-        console.error('Error checking patients table:', tableCheckError);
+        if (tableError) throw new Error(`Patients table access failed: ${tableError.message}`);
+      } catch (tableCheckError: any) {
         throw new Error(`Database table error: ${tableCheckError.message}`);
       }
       
       // Check if the location exists (if location_id is provided)
       if (data.location_id && data.location_id !== 'main') {
         try {
-          const { data: locationData, error: locationError } = await supabase
+          const { error: locationError } = await supabase
             .from('locations')
             .select('id')
             .eq('id', data.location_id)
             .single();
           
-          if (locationError) {
-            console.error('Location check failed:', locationError);
-            throw new Error(`Location not found: ${data.location_id}`);
-          }
-          
-          console.log('Location exists:', locationData);
-        } catch (locationCheckError) {
-          console.error('Error checking location:', locationCheckError);
+          if (locationError) throw new Error(`Location not found: ${data.location_id}`);
+        } catch (locationCheckError: any) {
           throw new Error(`Location validation error: ${locationCheckError.message}`);
         }
       }
@@ -131,16 +96,11 @@ export const api = {
             .select('id')
             .limit(1);
           
-          if (locationsError) {
-            console.error('Error fetching locations:', locationsError);
-            throw new Error(`Failed to fetch locations: ${locationsError.message}`);
-          }
+          if (locationsError) throw new Error(`Failed to fetch locations: ${locationsError.message}`);
           
           if (locations && locations.length > 0) {
             finalLocationId = locations[0].id;
-            console.log('Using first location ID:', finalLocationId);
           } else {
-            console.log('No locations found, creating default location');
             const { data: newLocation, error: createError } = await supabase
               .from('locations')
               .insert({
@@ -151,16 +111,10 @@ export const api = {
               .select()
               .single();
             
-            if (createError) {
-              console.error('Error creating default location:', createError);
-              throw new Error(`Failed to create default location: ${createError.message}`);
-            }
-            
+            if (createError) throw new Error(`Failed to create default location: ${createError.message}`);
             finalLocationId = newLocation.id;
-            console.log('Created and using new location ID:', finalLocationId);
           }
-        } catch (locationHandlingError) {
-          console.error('Error handling location:', locationHandlingError);
+        } catch (locationHandlingError: any) {
           throw new Error(`Location handling error: ${locationHandlingError.message}`);
         }
       }
@@ -175,22 +129,13 @@ export const api = {
         medical_history: data.medicalHistory || null
       };
 
-      console.log('Payload to be sent:', payload);
-
       const { data: result, error } = await supabase
         .from('patients')
         .insert(payload)
         .select()
         .single();
 
-      console.log('Database response:', { result, error });
-
-      if (error) {
-        console.error('Database error details:', error);
-        throw new Error(`Database error: ${error.message} (code: ${error.code})`);
-      }
-      
-      console.log('Mapped result:', mapPatient(result));
+      if (error) throw new Error(error.message);
       return mapPatient(result);
     },
     update: async (id: string, data: Partial<Patient>): Promise<Patient> => {
