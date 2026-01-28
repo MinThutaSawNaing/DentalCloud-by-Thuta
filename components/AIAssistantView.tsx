@@ -436,9 +436,9 @@ ${isAgentMode ? '• **Manage clinic data through direct API actions**' : ''}
       const contextData = getContextualData(isActionIntent || isAgentMode);
       const systemPrompt = `You are Loli, a dental AI assistant by WinterArc Myanmar, designed by Min Thuta Saw Naing.
 Today: ${contextData.td}
-Current Mode: ${isAgentMode ? 'AGENT (Actions enabled)' : 'ASK (Read-only)'}, but actions can be performed in any mode.
+Current Mode: ${isAgentMode ? 'AGENT (Actions enabled)' : 'ASK (Read-only)'}
 Practice Data: ${JSON.stringify(contextData)}
-${isAgentMode || isActionIntent ? API_DOCS : 'You are in ASK mode. If the user wants to perform a task like booking or adding data, suggest they switch to Agent Mode.'}
+${isAgentMode ? API_DOCS : 'You are in ASK mode. CRUD operations (creating, updating, deleting data) are only allowed in Agent Mode. If the user wants to perform such actions, ask them to switch to Agent Mode first.'}
 Verification by pros required. Identity: Loli by WinterArc Myanmar.`;
 
       const response = await fetch(
@@ -892,10 +892,25 @@ Thank you for using Loli! 🦷✨`,
           const actionObj = JSON.parse(sanitizedJson);
           const { action, params } = actionObj;
               
-          let result: any;
-          const locationId = users[0]?.location_id || 'main';
-              
-          switch (action) {
+          // Check if action is a CRUD operation that requires Agent Mode
+          const crudActions = ['apt_c', 'apt_u', 'apt_d', 'p_c', 'p_u', 'dr_c', 'dr_u', 'dr_d', 'm_c', 'm_u'];
+          if (crudActions.includes(action) && mode !== 'agent') {
+            actionResult = `⚠️ Agent Mode Required
+
+This action requires Agent Mode to be enabled. Please switch to Agent Mode using the toggle button and try again.
+
+Agent Mode is needed for:
+• Creating/Updating/Deleting patients
+• Booking/Updating/Deleting appointments
+• Creating/Updating/Deleting doctors
+• Creating/Updating medicines
+
+Ask Mode is for: Information queries, treatment suggestions, and general assistance.`;
+          } else {
+            let result: any;
+            const locationId = users[0]?.location_id || 'main';
+                
+            switch (action) {
             case 'apt_c':
               try {
                 result = await api.appointments.create({ 
@@ -1019,6 +1034,7 @@ Thank you for using Loli! 🦷✨`,
               break;
             default:
               actionResult = `⚠️ Unknown action: ${action}`;
+            }
           }
         } catch (err: any) {
           console.error('Action Execution Error:', err);
