@@ -1148,11 +1148,11 @@ Ask Mode is for: Information queries, treatment suggestions, and general assista
       <div className="relative p-6 border-b border-indigo-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <div className="relative p-2 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex-shrink-0 shadow-lg transform hover:scale-105 transition-transform duration-300">
+            <div className="relative p-1 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex-shrink-0 shadow-lg transform hover:scale-105 transition-transform duration-300">
               <img 
                 src="./assets/loli-logo.png" 
                 alt="Loli AI Assistant Logo" 
-                className="w-5 h-5 object-contain"
+                className="w-10 h-10 rounded-full"
               />
               <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-purple-400 to-indigo-500 opacity-0 hover:opacity-20 transition-opacity duration-300" />
             </div>
