@@ -872,78 +872,159 @@ Thank you for using Loli! 🦷✨`,
           
           let result: any;
           const locationId = users[0]?.location_id || 'main';
+          
+          // Debug logging
+          console.log('Action execution debug info:');
+          console.log('Action:', action);
+          console.log('Params:', params);
+          console.log('Location ID:', locationId);
+          console.log('Users array:', users);
 
           switch (action) {
             case 'apt_c':
-              result = await api.appointments.create({ 
-                location_id: locationId,
-                patient_id: params.p_id,
-                doctor_id: params.dr_id,
-                date: params.dt,
-                time: params.t,
-                type: params.ty,
-                notes: params.n,
-                status: 'Scheduled'
-              });
-              actionResult = `✅ Appointment created successfully for ${result.patient_name} with Dr. ${result.doctor_name} at ${result.time}.`;
+              try {
+                result = await api.appointments.create({ 
+                  location_id: locationId,
+                  patient_id: params.p_id,
+                  doctor_id: params.dr_id,
+                  date: params.dt,
+                  time: params.t,
+                  type: params.ty,
+                  notes: params.n,
+                  status: 'Scheduled'
+                });
+                actionResult = `✅ Appointment created successfully for ${result.patient_name} with Dr. ${result.doctor_name} at ${result.time}.`;
+              } catch (err: any) {
+                console.error('Appointment creation error:', err);
+                throw new Error(`Failed to create appointment: ${err.message}`);
+              }
               break;
             case 'apt_u':
-              result = await api.appointments.update(params.id, params.data);
-              actionResult = `✅ Appointment updated successfully.`;
+              try {
+                result = await api.appointments.update(params.id, params.data);
+                actionResult = `✅ Appointment updated successfully.`;
+              } catch (err: any) {
+                console.error('Appointment update error:', err);
+                throw new Error(`Failed to update appointment: ${err.message}`);
+              }
               break;
             case 'apt_d':
-              await api.appointments.delete(params.id);
-              actionResult = `✅ Appointment deleted successfully.`;
+              try {
+                await api.appointments.delete(params.id);
+                actionResult = `✅ Appointment deleted successfully.`;
+              } catch (err: any) {
+                console.error('Appointment deletion error:', err);
+                throw new Error(`Failed to delete appointment: ${err.message}`);
+              }
               break;
             case 'p_c':
-              result = await api.patients.create({ 
-                location_id: locationId,
-                name: params.n,
-                email: params.e,
-                phone: params.ph,
-                medicalHistory: params.m
-              });
-              actionResult = `✅ Patient ${result.name} added successfully.`;
+              try {
+                // Test the API call with debug logging
+                console.log('Creating patient with data:', { 
+                  location_id: locationId,
+                  name: params.n,
+                  email: params.e,
+                  phone: params.ph,
+                  medicalHistory: params.m
+                });
+                
+                // Test database connection and table existence
+                try {
+                  const testPatients = await api.patients.getAll();
+                  console.log('Test fetch of patients:', testPatients);
+                } catch (testError) {
+                  console.error('Test fetch of patients failed:', testError);
+                }
+                
+                result = await api.patients.create({ 
+                  location_id: locationId,
+                  name: params.n,
+                  email: params.e,
+                  phone: params.ph,
+                  medicalHistory: params.m
+                });
+                
+                console.log('Patient creation result:', result);
+                actionResult = `✅ Patient ${result.name} added successfully.`;
+              } catch (err: any) {
+                console.error('Patient creation error:', err);
+                console.error('Error details:', {
+                  message: err.message,
+                  stack: err.stack,
+                  name: err.name
+                });
+                throw new Error(`Failed to create patient: ${err.message}`);
+              }
               break;
             case 'p_u':
-              result = await api.patients.update(params.id, params.data);
-              actionResult = `✅ Patient information updated.`;
+              try {
+                result = await api.patients.update(params.id, params.data);
+                actionResult = `✅ Patient information updated.`;
+              } catch (err: any) {
+                console.error('Patient update error:', err);
+                throw new Error(`Failed to update patient: ${err.message}`);
+              }
               break;
             case 'dr_c':
-              result = await api.doctors.create({ 
-                location_id: locationId,
-                name: params.n,
-                email: params.e,
-                phone: params.ph,
-                specialization: params.s,
-                schedules: params.sch
-              });
-              actionResult = `✅ Dr. ${result.name} added to the system.`;
+              try {
+                result = await api.doctors.create({ 
+                  location_id: locationId,
+                  name: params.n,
+                  email: params.e,
+                  phone: params.ph,
+                  specialization: params.s,
+                  schedules: params.sch
+                });
+                actionResult = `✅ Dr. ${result.name} added to the system.`;
+              } catch (err: any) {
+                console.error('Doctor creation error:', err);
+                throw new Error(`Failed to create doctor: ${err.message}`);
+              }
               break;
             case 'dr_u':
-              result = await api.doctors.update(params.id, params.data);
-              actionResult = `✅ Doctor information updated.`;
+              try {
+                result = await api.doctors.update(params.id, params.data);
+                actionResult = `✅ Doctor information updated.`;
+              } catch (err: any) {
+                console.error('Doctor update error:', err);
+                throw new Error(`Failed to update doctor: ${err.message}`);
+              }
               break;
             case 'dr_d':
-              await api.doctors.delete(params.id);
-              actionResult = `✅ Doctor removed from system.`;
+              try {
+                await api.doctors.delete(params.id);
+                actionResult = `✅ Doctor removed from system.`;
+              } catch (err: any) {
+                console.error('Doctor deletion error:', err);
+                throw new Error(`Failed to delete doctor: ${err.message}`);
+              }
               break;
             case 'm_c':
-              result = await api.medicines.create({ 
-                location_id: locationId,
-                name: params.n,
-                description: params.d,
-                unit: params.u,
-                price: params.p,
-                stock: params.s,
-                min_stock: params.ms,
-                category: params.c
-              });
-              actionResult = `✅ Medicine ${result.name} added to inventory.`;
+              try {
+                result = await api.medicines.create({ 
+                  location_id: locationId,
+                  name: params.n,
+                  description: params.d,
+                  unit: params.u,
+                  price: params.p,
+                  stock: params.s,
+                  min_stock: params.ms,
+                  category: params.c
+                });
+                actionResult = `✅ Medicine ${result.name} added to inventory.`;
+              } catch (err: any) {
+                console.error('Medicine creation error:', err);
+                throw new Error(`Failed to create medicine: ${err.message}`);
+              }
               break;
             case 'm_u':
-              result = await api.medicines.update(params.id, params.data);
-              actionResult = `✅ Inventory updated for ${result.name}.`;
+              try {
+                result = await api.medicines.update(params.id, params.data);
+                actionResult = `✅ Inventory updated for ${result.name}.`;
+              } catch (err: any) {
+                console.error('Medicine update error:', err);
+                throw new Error(`Failed to update medicine: ${err.message}`);
+              }
               break;
             default:
               actionResult = `⚠️ Unknown action: ${action}`;
