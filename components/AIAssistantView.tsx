@@ -2,6 +2,41 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Bot, Send, Loader2, Sparkles, AlertCircle, User, Copy, Check, Plus, Trash2, MessageCircle } from 'lucide-react';
 import { Patient, ClinicalRecord, Appointment, Doctor, TreatmentType, User as UserType, Medicine } from '../types';
 
+// Custom CSS for animations
+const customStyles = `
+  @keyframes fade-in-up {
+    0% {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+  }
+  
+  .animate-fade-in-up {
+    animation: fade-in-up 0.3s ease-out forwards;
+  }
+  
+  .animate-shake {
+    animation: shake 0.5s ease-in-out;
+  }
+`;
+
+// Inject styles
+if (typeof document !== 'undefined') {
+  const styleSheet = document.createElement('style');
+  styleSheet.textContent = customStyles;
+  document.head.appendChild(styleSheet);
+}
+
 // ============================================================
 // IMPORTANT: REPLACE MOCK API KEY WITH YOUR REAL API KEY FROM APIFREE.AI
 // ============================================================
@@ -125,6 +160,17 @@ How can I assist you today?
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+  
+  // Add subtle typing indicator effect
+  const [isTyping, setIsTyping] = useState(false);
+  
+  useEffect(() => {
+    if (isLoading) {
+      setIsTyping(true);
+      const timer = setTimeout(() => setIsTyping(false), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading]);
 
   // Focus input on mount
   useEffect(() => {
@@ -788,24 +834,63 @@ Thank you for using Loli! 🦷✨`,
     "Crown preparation steps explained",
   ];
 
+  // Floating particles effect state
+  const [particles, setParticles] = useState<Array<{id: number, x: number, y: number, size: number}>>([]);
+  
+  // Generate floating particles for background effect
+  useEffect(() => {
+    const generateParticles = () => {
+      const newParticles = Array.from({ length: 15 }, (_, i) => ({
+        id: i,
+        x: Math.random() * 100,
+        y: Math.random() * 100,
+        size: Math.random() * 4 + 2
+      }));
+      setParticles(newParticles);
+    };
+    
+    generateParticles();
+    const interval = setInterval(generateParticles, 8000);
+    return () => clearInterval(interval);
+  }, []);
+  
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden animate-fade-in">
-      <div className="p-6 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white sticky top-0 z-10">
+    <div className="relative bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 rounded-xl shadow-xl border border-indigo-100 overflow-hidden animate-fade-in">
+      {/* Animated background particles */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {particles.map(particle => (
+          <div
+            key={particle.id}
+            className="absolute rounded-full bg-gradient-to-r from-indigo-400/20 to-purple-400/20 animate-pulse"
+            style={{
+              left: `${particle.x}%`,
+              top: `${particle.y}%`,
+              width: `${particle.size}px`,
+              height: `${particle.size}px`,
+              animationDuration: `${Math.random() * 3 + 2}s`,
+              animationDelay: `${Math.random() * 2}s`
+            }}
+          />
+        ))}
+      </div>
+      
+      <div className="relative p-6 border-b border-indigo-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex-shrink-0">
-              <Sparkles className="w-5 h-5 text-white" />
+            <div className="relative p-2 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex-shrink-0 shadow-lg transform hover:scale-105 transition-transform duration-300">
+              <Sparkles className="w-5 h-5 text-white animate-pulse" />
+              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-purple-400 to-indigo-500 opacity-0 hover:opacity-20 transition-opacity duration-300" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-800">Loli AI Assistant</h2>
-              <p className="text-sm text-gray-500">Clinical decision support and dental guidance</p>
+              <h2 className="text-xl font-bold text-gray-800 bg-gradient-to-r from-indigo-700 to-purple-700 bg-clip-text text-transparent">Loli AI Assistant</h2>
+              <p className="text-sm text-indigo-600 font-medium">Clinical decision support & dental guidance</p>
             </div>
           </div>
-          <p className="text-xs text-gray-400 mt-1">by WinterArc Myanmar | Daily usage: {dailyUsageCount}/{DAILY_LIMIT} requests</p>
+          <p className="text-xs text-indigo-500 mt-1 font-medium">by WinterArc Myanmar | Daily usage: {dailyUsageCount}/{DAILY_LIMIT} requests</p>
         </div>
         <button
           onClick={createNewSession}
-          className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-lg font-medium transition-colors text-sm"
+          className="flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-medium transition-all duration-300 text-sm shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0"
           title="Start new conversation"
         >
           <Plus className="w-4 h-4" />
@@ -813,14 +898,14 @@ Thank you for using Loli! 🦷✨`,
         </button>
       </div>
 
-      <div className="flex flex-col md:flex-row h-[calc(100vh-200px)]">
+      <div className="flex flex-col md:flex-row h-[calc(100vh-200px)] relative">
         {/* Chat History Sidebar - Hidden on mobile, visible on desktop */}
-        <aside className="hidden md:flex md:w-64 bg-gray-50 border-r border-gray-200 flex-col">
+        <aside className="hidden md:flex md:w-64 bg-gradient-to-b from-indigo-50/50 to-purple-50/50 border-r border-indigo-200 flex-col backdrop-blur-sm">
           {/* Sessions List */}
           <div className="flex-1 overflow-y-auto p-3">
             {chatSessions.length === 0 ? (
-              <div className="p-4 text-center text-gray-400 text-sm">
-                <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <div className="p-4 text-center text-indigo-400 text-sm animate-pulse">
+                <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-60" />
                 <p>No conversations yet</p>
               </div>
             ) : (
@@ -828,10 +913,10 @@ Thank you for using Loli! 🦷✨`,
                 {chatSessions.map(session => (
                   <div
                     key={session.id}
-                    className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors hover:bg-gray-100 ${
+                    className={`group flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all duration-300 hover:bg-white/70 shadow-sm hover:shadow-md ${
                       currentSessionId === session.id
-                        ? 'bg-indigo-50 border-l-4 border-indigo-600'
-                        : 'border-l-4 border-transparent'
+                        ? 'bg-gradient-to-r from-indigo-100/80 to-purple-100/80 border-l-4 border-indigo-500 shadow-md'
+                        : 'border-l-4 border-transparent hover:border-indigo-300'
                     }`}
                   >
                     <button
@@ -839,12 +924,12 @@ Thank you for using Loli! 🦷✨`,
                       className="flex-1 text-left truncate focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded px-1"
                       title={session.title}
                     >
-                      <div className="text-sm font-medium truncate text-gray-900">{session.title}</div>
-                      <div className="text-xs text-gray-500">{session.messages.length} messages</div>
+                      <div className="text-sm font-medium truncate text-indigo-900 group-hover:text-indigo-700">{session.title}</div>
+                      <div className="text-xs text-indigo-500">{session.messages.length} messages</div>
                     </button>
                     <button
                       onClick={() => deleteSession(session.id)}
-                      className="opacity-0 group-hover:opacity-100 ml-2 p-2 hover:bg-red-100 rounded text-red-600 transition-all focus:outline-none focus:ring-2 focus:ring-red-500"
+                      className="opacity-0 group-hover:opacity-100 ml-2 p-2 hover:bg-red-100 rounded-lg text-red-600 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-red-500 transform hover:scale-110"
                       title="Delete conversation"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -857,28 +942,28 @@ Thank you for using Loli! 🦷✨`,
         </aside>
 
         {/* Main Chat Area */}
-        <div className="flex-1 flex flex-col border-l border-gray-200 md:border-l-0">
+        <div className="flex-1 flex flex-col border-l border-indigo-200 md:border-l-0 relative">
           {/* Messages Container */}
-          <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-            <div className="flex-1 overflow-y-auto p-4 md:p-6">
+          <div className="flex-1 overflow-hidden flex flex-col min-h-0 relative">
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 relative z-10">
               <div className="max-w-4xl mx-auto space-y-4">
                 {/* API Status Banner */}
                 {apiStatus === 'mock' && (
-                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="p-4 bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200 rounded-xl shadow-sm animate-pulse">
                     <div className="flex items-start gap-3">
-                      <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                      <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5 animate-bounce" />
                       <div className="flex-1 text-sm">
                         <h3 className="font-semibold text-yellow-800 mb-1">Mock Mode Active</h3>
-                        <p className="text-yellow-700">Connect to <code className="bg-yellow-100 px-1">apifree.ai</code> for real AI responses</p>
+                        <p className="text-yellow-700">Connect to <code className="bg-yellow-100 px-1 rounded">apifree.ai</code> for real AI responses</p>
                       </div>
                     </div>
                   </div>
                 )}
 
                 {apiStatus === 'error' && (
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="p-4 bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-xl shadow-sm animate-shake">
                     <div className="flex items-center gap-3">
-                      <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                      <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 animate-pulse" />
                       <p className="text-sm text-red-700">API connection error. Check your configuration.</p>
                     </div>
                   </div>
@@ -886,34 +971,38 @@ Thank you for using Loli! 🦷✨`,
 
                 {/* Chat Messages */}
                 <div className="space-y-4">
-                  {messages.map((message) => (
-                    <div key={message.id} className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  {messages.map((message, index) => (
+                    <div 
+                      key={message.id} 
+                      className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in-up`}
+                      style={{ animationDelay: `${index * 50}ms` }}
+                    >
                       {message.role === 'assistant' && (
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg transform hover:scale-110 transition-transform duration-300">
                           <Bot className="w-4 h-4 text-white" />
                         </div>
                       )}
                       
                       <div
-                        className={`max-w-xs md:max-w-2xl group relative ${
+                        className={`max-w-xs md:max-w-2xl group relative transform transition-all duration-300 hover:scale-[1.02] ${
                           message.role === 'user'
-                            ? 'bg-indigo-600 text-white rounded-2xl rounded-tr-sm px-4 py-3'
-                            : 'bg-gray-100 text-gray-900 rounded-2xl rounded-tl-sm px-4 py-3'
+                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 shadow-lg'
+                            : 'bg-white/80 backdrop-blur-sm text-gray-900 rounded-2xl rounded-tl-sm px-4 py-3 shadow-md border border-indigo-100'
                         }`}
                       >
                         <div className="text-sm md:text-base whitespace-pre-wrap leading-relaxed break-words">{message.content}</div>
                         <div className={`flex items-center gap-2 mt-2 pt-2 border-t ${
-                          message.role === 'user' ? 'border-indigo-500' : 'border-gray-300'
+                          message.role === 'user' ? 'border-indigo-400/50' : 'border-gray-200'
                         }`}>
                           <span className={`text-xs ${
-                            message.role === 'user' ? 'text-indigo-200' : 'text-gray-500'
+                            message.role === 'user' ? 'text-indigo-200' : 'text-indigo-500'
                           }`}>
                             {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                           <button
                             onClick={() => copyToClipboard(message.content, message.id)}
-                            className={`ml-auto p-1.5 rounded hover:bg-opacity-20 transition-colors focus:outline-none focus:ring-2 ${
-                              message.role === 'user' ? 'text-indigo-200 hover:bg-indigo-900 focus:ring-indigo-500' : 'text-gray-500 hover:bg-gray-300 focus:ring-gray-400'
+                            className={`ml-auto p-1.5 rounded-lg hover:bg-opacity-20 transition-all duration-300 focus:outline-none focus:ring-2 transform hover:scale-110 ${
+                              message.role === 'user' ? 'text-indigo-200 hover:bg-indigo-900 focus:ring-indigo-500' : 'text-indigo-500 hover:bg-indigo-100 focus:ring-indigo-400'
                             }`}
                             title="Copy message"
                           >
@@ -923,7 +1012,7 @@ Thank you for using Loli! 🦷✨`,
                       </div>
 
                       {message.role === 'user' && (
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg transform hover:scale-110 transition-transform duration-300">
                           <User className="w-4 h-4 text-white" />
                         </div>
                       )}
@@ -931,14 +1020,14 @@ Thank you for using Loli! 🦷✨`,
                   ))}
 
                   {isLoading && (
-                    <div className="flex gap-3 justify-start">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
+                    <div className="flex gap-3 justify-start animate-pulse">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg animate-bounce">
                         <Bot className="w-4 h-4 text-white" />
                       </div>
-                      <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-4 py-3">
+                      <div className="bg-white/80 backdrop-blur-sm rounded-2xl rounded-tl-sm px-4 py-3 shadow-md border border-indigo-100">
                         <div className="flex items-center gap-2">
                           <Loader2 className="w-4 h-4 text-indigo-600 animate-spin" />
-                          <span className="text-sm text-gray-600">Thinking...</span>
+                          <span className="text-sm text-indigo-700 font-medium">Thinking...</span>
                         </div>
                       </div>
                     </div>
@@ -951,7 +1040,7 @@ Thank you for using Loli! 🦷✨`,
           </div>
 
           {/* Input Area */}
-          <div className="border-t border-gray-200 p-4 md:p-6 bg-white">
+          <div className="border-t border-indigo-200 p-4 md:p-6 bg-white/80 backdrop-blur-sm relative z-10">
             <div className="max-w-4xl mx-auto">
               <div className="flex gap-3 flex-col md:flex-row">
                 <textarea
@@ -960,21 +1049,21 @@ Thank you for using Loli! 🦷✨`,
                   onChange={(e) => setInputMessage(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Ask Loli anything about patient care, treatments, or dental procedures..."
-                  className="flex-1 border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                  className="flex-1 border border-indigo-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none bg-white/70 backdrop-blur-sm transition-all duration-300 hover:bg-white/90 focus:bg-white shadow-sm"
                   rows={2}
                   disabled={isLoading}
                 />
                 <button
                   onClick={handleSendMessage}
                   disabled={!inputMessage.trim() || isLoading}
-                  className="w-full md:w-auto px-6 py-3 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white rounded-xl font-medium transition-all duration-300 flex items-center justify-center gap-2 text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                   title="Send message"
                 >
                   {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   <span className="md:hidden">Send</span>
                 </button>
               </div>
-              <p className="text-xs text-gray-400 mt-2 text-center">AI guidance is for reference. Always verify with clinical judgment.</p>
+              <p className="text-xs text-indigo-500 mt-2 text-center font-medium">AI guidance is for reference. Always verify with clinical judgment.</p>
             </div>
           </div>
         </div>
