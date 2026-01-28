@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bot, Send, Loader2, Sparkles, AlertCircle, User, Copy, Check, Plus, Trash2, MessageCircle } from 'lucide-react';
+import { Bot, Send, Loader2, Sparkles, AlertCircle, User, Copy, Check, Plus, Trash2, MessageCircle, Zap, ShieldQuestion } from 'lucide-react';
 import { Patient, ClinicalRecord, Appointment, Doctor, TreatmentType, User as UserType, Medicine } from '../types';
+import { api } from '../services/api';
 
 // Custom CSS for animations
 const customStyles = `
@@ -151,6 +152,7 @@ How can I assist you today?
   });
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [mode, setMode] = useState<'ask' | 'agent'>('ask');
   const [apiStatus, setApiStatus] = useState<'ready' | 'mock' | 'error'>('mock');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -316,35 +318,74 @@ How can I assist you today?
     }
   };
 
-  const getContextualData = () => {
+  const getContextualData = (isActionQuery: boolean = false) => {
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-    // Highly optimized/compressed data for minimal token usage
-    return {
-      td: today, // today's date
-      s: { // stats
+    
+    // Basic stats always included
+    const baseData = {
+      td: today,
+      s: {
         p: patients.length,
         a: appointments.length,
         d: doctors.length,
         t: treatmentTypes.length,
         m: medicines.length
-      },
-      // Essential info only
-      dr: doctors.map(d => ({ n: d.name, s: d.specialization })), 
-      ta: appointments.filter(a => a.status === 'Scheduled' && a.date === today).map(a => ({ p: a.patient_name, d: a.doctor_name, t: a.time })), // today's appointments
-      ua: appointments.filter(a => a.status === 'Scheduled' && a.date >= today).slice(0, 5).map(a => ({ p: a.patient_name, d: a.doctor_name, dt: a.date, t: a.time })),
-      tr: treatmentRecords.slice(0, 5).map(r => ({ p: r.patient_name, d: r.description, dt: r.date })),
-      ls: medicines.filter(m => m.stock <= (m.min_stock || 0)).map(m => ({ n: m.name, q: m.stock })),
-      inv: { // inventory stats
-        total_items: medicines.length,
-        total_stock: medicines.reduce((sum, med) => sum + (med.stock || 0), 0),
-        low_stock_count: medicines.filter(m => m.stock <= (m.min_stock || 0)).length,
-        top_items: medicines.sort((a, b) => b.stock - a.stock).slice(0, 5).map(m => ({ n: m.name, q: m.stock, c: m.category }))
       }
+    };
+
+    if (!isActionQuery && mode === 'ask') {
+      // Highly optimized/compressed data for minimal token usage
+      return {
+        ...baseData,
+        dr: doctors.map(d => ({ i: d.id, n: d.name, s: d.specialization })), 
+        ta: appointments.filter(a => a.status === 'Scheduled' && a.date === today).map(a => ({ p: a.patient_name, d: a.doctor_name, t: a.time })),
+        ua: appointments.filter(a => a.status === 'Scheduled' && a.date >= today).slice(0, 5).map(a => ({ p: a.patient_name, d: a.doctor_name, dt: a.date, t: a.time })),
+        tr: treatmentRecords.slice(0, 5).map(r => ({ p: r.patient_name, d: r.description, dt: r.date })),
+        ls: medicines.filter(m => m.stock <= (m.min_stock || 0)).map(m => ({ n: m.name, q: m.stock })),
+        inv: {
+          total_items: medicines.length,
+          total_stock: medicines.reduce((sum, med) => sum + (med.stock || 0), 0),
+          low_stock_count: medicines.filter(m => m.stock <= (m.min_stock || 0)).length
+        }
+      };
+    }
+
+    // Extended context for Agent Mode or Action queries
+    return {
+      ...baseData,
+      patients: patients.slice(0, 15).map(p => ({ i: p.id, n: p.name, ph: p.phone, b: p.balance })),
+      doctors: doctors.map(d => ({ i: d.id, n: d.name, s: d.specialization, sch: d.schedules })),
+      appointments: appointments.filter(a => a.date >= today).slice(0, 15).map(a => ({ i: a.id, p: a.patient_name, pi: a.patient_id, d: a.doctor_name, di: a.doctor_id, dt: a.date, t: a.time, s: a.status })),
+      medicines: medicines.slice(0, 15).map(m => ({ i: m.id, n: m.name, s: m.stock, ms: m.min_stock, p: m.price })),
+      loc: users[0]?.location_id || 'main' // Use first user's location as default
     };
   };
 
+  const API_DOCS = `
+ACTIONS (Only if mode is AGENT):
+- apt_c(p_id, dr_id, dt, t, ty, n): Create appointment. p_id=patient id, dr_id=doctor id, dt=date(YYYY-MM-DD), t=time(HH:mm), ty=type, n=notes.
+- apt_u(id, data): Update appointment. data can include {date, time, status, doctor_id, etc}.
+- apt_d(id): Delete appointment.
+- p_c(n, e, ph, m): Create patient. n=name, e=email, ph=phone, m=medicalHistory.
+- p_u(id, data): Update patient. data: {name, email, phone, medicalHistory, etc}.
+- dr_c(n, e, ph, s, sch): Create doctor. n=name, e=email, ph=phone, s=specialization, sch=schedules.
+- dr_u(id, data): Update doctor.
+- dr_d(id): Delete doctor.
+- m_c(n, d, u, p, s, ms, c): Create medicine. n=name, d=description, u=unit, p=price, s=stock, ms=min_stock, c=category.
+- m_u(id, data): Update medicine.
+
+To perform an action, include a JSON block at the END of your message:
+{ "action": "ACTION_NAME", "params": { ... } }
+Only perform actions if explicitly requested or clearly intended.
+`;
+
   const callAICompletionAPI = async (userMessage: string): Promise<string> => {
     const apiKey = process.env.AI_API_KEY || MOCK_API_KEY;
+    
+    // Check if message implies an action
+    const actionKeywords = ['create', 'book', 'schedule', 'add', 'delete', 'remove', 'update', 'modify', 'change', 'edit', 'new', 'make'];
+    const isActionIntent = actionKeywords.some(kw => userMessage.toLowerCase().includes(kw));
+    const isAgentMode = mode === 'agent';
     
     // Check for identity questions first (works in both mock and real mode)
     const lowerMessage = userMessage.toLowerCase();
@@ -360,6 +401,7 @@ I'm **Loli**, an AI model trained by **WinterArc Myanmar**, specially designed b
 • Provide evidence-based treatment recommendations
 • Support patient care with dental knowledge
 • Help with documentation and clinical protocols
+${isAgentMode ? '• **Manage clinic data through direct API actions**' : ''}
 
 **Created by:**
 👨‍💻 Min Thuta Saw Naing
@@ -376,12 +418,13 @@ I'm **Loli**, an AI model trained by **WinterArc Myanmar**, specially designed b
 
     // Real API call to apifree.ai
     try {
-      const contextData = getContextualData();
+      const contextData = getContextualData(isActionIntent || isAgentMode);
       const systemPrompt = `You are Loli, a dental AI assistant by WinterArc Myanmar, designed by Min Thuta Saw Naing.
 Today: ${contextData.td}
-Practice Data (Compressed): ${JSON.stringify(contextData)}
-Keys: td=today, s=stats(p:patients,a:apps,d:docs,t:treatments,m:meds), dr=doctors, ta=today's apps, ua=upcoming apps, tr=recent treatments, ls=low stock meds, inv=inventory(total_items, total_stock, low_stock_count, top_items).
-Provide clinical/practice advice. Answer inventory questions when asked. Verification by pros required. Identity: Loli by WinterArc Myanmar.`;
+Current Mode: ${isAgentMode ? 'AGENT (Actions enabled)' : 'ASK (Read-only)'}
+Practice Data: ${JSON.stringify(contextData)}
+${isAgentMode || isActionIntent ? API_DOCS : 'You are in ASK mode. If the user wants to perform a task like booking or adding data, suggest they switch to Agent Mode.'}
+Verification by pros required. Identity: Loli by WinterArc Myanmar.`;
 
       const response = await fetch(
         `https://api.apifree.ai/v1/chat/completions`,
@@ -683,7 +726,7 @@ Provide clinical/practice advice. Answer inventory questions when asked. Verific
 
 📊 *Success rate: >95% for properly selected cases.*`);
         } else if (lowerMessage.includes('patient') && lowerMessage.includes('records')) {
-          const contextData = getContextualData();
+          const contextData: any = getContextualData();
           resolve(`📊 **Practice Overview:**
 
 **Current Statistics:**
@@ -691,24 +734,24 @@ Provide clinical/practice advice. Answer inventory questions when asked. Verific
 - Recent Treatments: ${contextData.s.a}
 
 **Recent Activity:**
-${contextData.tr.map(r => 
+${contextData.tr ? contextData.tr.map((r: any) => 
   `• ${r.p}: ${r.d} (${new Date(r.dt).toLocaleDateString()})`
-).join('\n')}
+).join('\n') : 'No recent activity data available.'}
 
 💡 *This is real data from your practice. What specific aspect would you like to discuss?*`);
         } else if (lowerMessage.includes('inventory') || lowerMessage.includes('stock') || lowerMessage.includes('item') || lowerMessage.includes('medicine') || lowerMessage.includes('medication')) {
-          const contextData = getContextualData();
+          const contextData: any = getContextualData();
           resolve(`📦 **Inventory Overview:**
 
 **Current Stock Summary:**
-- Total Items: ${contextData.inv.total_items}
-- Total Stock Count: ${contextData.inv.total_stock}
-- Low Stock Items: ${contextData.inv.low_stock_count}
+- Total Items: ${contextData.inv?.total_items || 0}
+- Total Stock Count: ${contextData.inv?.total_stock || 0}
+- Low Stock Items: ${contextData.inv?.low_stock_count || 0}
 
 **Top 5 Items by Quantity:**
-${contextData.inv.top_items.map(item => 
+${contextData.inv?.top_items ? contextData.inv.top_items.map((item: any) => 
   `• ${item.n}: ${item.q} units${item.c ? ` (${item.c})` : ''}`
-).join('\n')}
+).join('\n') : 'No inventory breakdown available.'}
 
 💡 *This is real-time inventory data from your clinic. What specific inventory information do you need?*`);
         } else {
@@ -788,10 +831,103 @@ Thank you for using Loli! 🦷✨`,
     try {
       const aiResponse = await callAICompletionAPI(userMessage.content);
       
+      // Parse for action JSON block
+      let actionResult = '';
+      const actionMatch = aiResponse.match(/\{[\s\S]*?"action"[\s\S]*?\}/);
+      
+      if (actionMatch && mode === 'agent') {
+        try {
+          const actionObj = JSON.parse(actionMatch[0]);
+          const { action, params } = actionObj;
+          
+          let result: any;
+          const locationId = users[0]?.location_id || 'main';
+
+          switch (action) {
+            case 'apt_c':
+              result = await api.appointments.create({ 
+                location_id: locationId,
+                patient_id: params.p_id,
+                doctor_id: params.dr_id,
+                date: params.dt,
+                time: params.t,
+                type: params.ty,
+                notes: params.n,
+                status: 'Scheduled'
+              });
+              actionResult = `✅ Appointment created successfully for ${result.patient_name} with Dr. ${result.doctor_name} at ${result.time}.`;
+              break;
+            case 'apt_u':
+              result = await api.appointments.update(params.id, params.data);
+              actionResult = `✅ Appointment updated successfully.`;
+              break;
+            case 'apt_d':
+              await api.appointments.delete(params.id);
+              actionResult = `✅ Appointment deleted successfully.`;
+              break;
+            case 'p_c':
+              result = await api.patients.create({ 
+                location_id: locationId,
+                name: params.n,
+                email: params.e,
+                phone: params.ph,
+                medicalHistory: params.m
+              });
+              actionResult = `✅ Patient ${result.name} added successfully.`;
+              break;
+            case 'p_u':
+              result = await api.patients.update(params.id, params.data);
+              actionResult = `✅ Patient information updated.`;
+              break;
+            case 'dr_c':
+              result = await api.doctors.create({ 
+                location_id: locationId,
+                name: params.n,
+                email: params.e,
+                phone: params.ph,
+                specialization: params.s,
+                schedules: params.sch
+              });
+              actionResult = `✅ Dr. ${result.name} added to the system.`;
+              break;
+            case 'dr_u':
+              result = await api.doctors.update(params.id, params.data);
+              actionResult = `✅ Doctor information updated.`;
+              break;
+            case 'dr_d':
+              await api.doctors.delete(params.id);
+              actionResult = `✅ Doctor removed from system.`;
+              break;
+            case 'm_c':
+              result = await api.medicines.create({ 
+                location_id: locationId,
+                name: params.n,
+                description: params.d,
+                unit: params.u,
+                price: params.p,
+                stock: params.s,
+                min_stock: params.ms,
+                category: params.c
+              });
+              actionResult = `✅ Medicine ${result.name} added to inventory.`;
+              break;
+            case 'm_u':
+              result = await api.medicines.update(params.id, params.data);
+              actionResult = `✅ Inventory updated for ${result.name}.`;
+              break;
+            default:
+              actionResult = `⚠️ Unknown action: ${action}`;
+          }
+        } catch (err: any) {
+          console.error('Action Execution Error:', err);
+          actionResult = `❌ Failed to perform action: ${err.message}`;
+        }
+      }
+
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: aiResponse,
+        content: actionResult ? `${aiResponse.replace(actionMatch ? actionMatch[0] : '', '').trim()}\n\n${actionResult}` : aiResponse,
         timestamp: new Date()
       };
 
@@ -888,14 +1024,43 @@ Thank you for using Loli! 🦷✨`,
           </div>
           <p className="text-xs text-indigo-500 mt-1 font-medium">by WinterArc Myanmar | Daily usage: {dailyUsageCount}/{DAILY_LIMIT} requests</p>
         </div>
-        <button
-          onClick={createNewSession}
-          className="flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-medium transition-all duration-300 text-sm shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0"
-          title="Start new conversation"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Chat</span>
-        </button>
+        
+        <div className="flex items-center gap-3">
+          {/* Mode Toggle */}
+          <div className="flex bg-indigo-50/50 p-1 rounded-xl border border-indigo-100 shadow-inner backdrop-blur-sm">
+            <button
+              onClick={() => setMode('ask')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 ${
+                mode === 'ask' 
+                ? 'bg-white text-indigo-600 shadow-md transform scale-105' 
+                : 'text-indigo-400 hover:text-indigo-600 hover:bg-white/50'
+              }`}
+            >
+              <ShieldQuestion className="w-3.5 h-3.5" />
+              <span>Ask Mode</span>
+            </button>
+            <button
+              onClick={() => setMode('agent')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 ${
+                mode === 'agent' 
+                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg transform scale-105' 
+                : 'text-indigo-400 hover:text-indigo-600 hover:bg-white/50'
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>Agent Mode</span>
+            </button>
+          </div>
+
+          <button
+            onClick={createNewSession}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-medium transition-all duration-300 text-sm shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0"
+            title="Start new conversation"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Chat</span>
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row h-[calc(100vh-200px)] relative">
