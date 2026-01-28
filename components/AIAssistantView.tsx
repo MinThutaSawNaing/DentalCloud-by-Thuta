@@ -82,7 +82,20 @@ How can I assist you today?
   // Chat session state
   const [chatSessions, setChatSessions] = useState<ChatSession[]>(() => {
     const saved = localStorage.getItem('loli_chat_sessions');
-    return saved ? JSON.parse(saved) : [];
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Convert timestamp strings back to Date objects
+      return parsed.map((session: any) => ({
+        ...session,
+        createdAt: new Date(session.createdAt),
+        updatedAt: new Date(session.updatedAt),
+        messages: session.messages.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp)
+        }))
+      }));
+    }
+    return [];
   });
   const [currentSessionId, setCurrentSessionId] = useState<string>(() => {
     const saved = localStorage.getItem('loli_current_session');
@@ -91,7 +104,13 @@ How can I assist you today?
   const [messages, setMessages] = useState<Message[]>(() => {
     if (currentSessionId) {
       const session = chatSessions.find(s => s.id === currentSessionId);
-      return session?.messages || getDefaultMessages();
+      if (session) {
+        // Ensure timestamps are Date objects
+        return session.messages.map(msg => ({
+          ...msg,
+          timestamp: msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp)
+        }));
+      }
     }
     return getDefaultMessages();
   });
@@ -166,7 +185,12 @@ How can I assist you today?
     const session = chatSessions.find(s => s.id === sessionId);
     if (session) {
       setCurrentSessionId(sessionId);
-      setMessages(session.messages);
+      // Ensure timestamps are Date objects when switching sessions
+      const messagesWithDates = session.messages.map(msg => ({
+        ...msg,
+        timestamp: msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp)
+      }));
+      setMessages(messagesWithDates);
       localStorage.setItem('loli_current_session', sessionId);
     }
   };
@@ -208,7 +232,7 @@ How can I assist you today?
     threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
     
     const filtered = chatSessions.filter(session => {
-      const sessionDate = new Date(session.createdAt);
+      const sessionDate = session.createdAt instanceof Date ? session.createdAt : new Date(session.createdAt);
       return sessionDate > threeDaysAgo;
     });
     

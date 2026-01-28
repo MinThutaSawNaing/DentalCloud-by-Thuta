@@ -926,7 +926,7 @@ const App: React.FC = () => {
               <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-2">Connected Database</p>
               <div className="flex items-center gap-2">
                  <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                 <span className="text-xs text-gray-300 font-medium">Supabase Active</span>
+                 <span className="text-xs text-gray-300 font-medium">High Performance</span>
               </div>
            </div>
            <div className="p-4 bg-gray-800 rounded-2xl border border-gray-700">
