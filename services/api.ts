@@ -1,6 +1,6 @@
 import { supabase, supabaseUrl, supabaseAnonKey } from './supabase';
 import * as tus from 'tus-js-client';
-import { Patient, Appointment, ClinicalRecord, TreatmentType, PatientFile, Doctor, DoctorSchedule, User, Medicine, MedicineSale, Location, LoyaltyRule, LoyaltyTransaction, Expense, Message, Conversation, Recall, ScheduledTask } from '../types';
+import { Patient, Appointment, ClinicalRecord, TreatmentType, PatientFile, Doctor, DoctorSchedule, User, Medicine, MedicineSale, Location, LoyaltyRule, LoyaltyTransaction, Expense, BlogPost, Message, Conversation, Recall, ScheduledTask } from '../types';
 import { FULL_ACCESS_TAB_PERMISSIONS } from '../constants';
 import { resolveAllowedTabs } from '../utils/permissions';
 import { loadEmailSettings } from '../utils/emailSettings';
@@ -1743,6 +1743,93 @@ export const api = {
     delete: async (id: string): Promise<void> => {
       const { error } = await supabase
         .from('expenses')
+        .delete()
+        .eq('id', id);
+      if (error) throw new Error(error.message);
+    }
+  },
+
+  blogs: {
+    uploadImage: async (file: File, locationId: string): Promise<string> => {
+      const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+      const path = `${locationId}/${Date.now()}-${safeName}`;
+      const { error } = await supabase.storage
+        .from('blog_images')
+        .upload(path, file, { cacheControl: '3600', upsert: false });
+      if (error) throw new Error(error.message);
+      const { data } = supabase.storage.from('blog_images').getPublicUrl(path);
+      return data.publicUrl;
+    },
+    getAll: async (locationId?: string): Promise<BlogPost[]> => {
+      try {
+        let query = supabase
+          .from('blog_posts')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (locationId) {
+          query = query.eq('location_id', locationId);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        return data || [];
+      } catch (err) {
+        console.warn('Error fetching blog posts:', err);
+        return [];
+      }
+    },
+    getPublished: async (locationId?: string): Promise<BlogPost[]> => {
+      try {
+        let query = supabase
+          .from('blog_posts')
+          .select('*')
+          .eq('published', true)
+          .order('published_at', { ascending: false })
+          .order('created_at', { ascending: false });
+
+        if (locationId) {
+          query = query.eq('location_id', locationId);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        return data || [];
+      } catch (err) {
+        console.warn('Error fetching published blog posts:', err);
+        return [];
+      }
+    },
+    create: async (data: Partial<BlogPost>): Promise<BlogPost> => {
+      const payload = {
+        ...data,
+        updated_at: new Date().toISOString()
+      };
+      const { data: result, error } = await supabase
+        .from('blog_posts')
+        .insert(payload)
+        .select()
+        .single();
+      if (error) throw new Error(error.message);
+      return result;
+    },
+    update: async (id: string, data: Partial<BlogPost>): Promise<BlogPost> => {
+      const payload = {
+        ...data,
+        updated_at: new Date().toISOString()
+      };
+      const { data: result, error } = await supabase
+        .from('blog_posts')
+        .update(payload)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw new Error(error.message);
+      return result;
+    },
+    delete: async (id: string): Promise<void> => {
+      const { error } = await supabase
+        .from('blog_posts')
         .delete()
         .eq('id', id);
       if (error) throw new Error(error.message);

@@ -80,7 +80,7 @@ export const FLEXIBLE_STAFF_TABS = [
   }
 ] as const;
 
-export const MANAGER_ONLY_TABS = ['users', 'settings'] as const;
+export const MANAGER_ONLY_TABS = ['users', 'settings', 'blog'] as const;
 
 export type FlexibleStaffTab = typeof FLEXIBLE_STAFF_TABS[number]['key'];
 export type ManagerOnlyTab = typeof MANAGER_ONLY_TABS[number];

@@ -23,7 +23,8 @@ import {
   Monitor,
   AlertTriangle,
   BellRing,
-  DollarSign
+  DollarSign,
+  BookOpen
 } from 'lucide-react';
 
 import { Modal, Input, NavItem, Toast } from './components/Shared';
@@ -44,6 +45,7 @@ import {
   LoyaltyRule, 
   LoyaltyTransaction,
   Expense,
+  BlogPost,
   Recall,
   ScheduledTask
 } from './types';
@@ -83,6 +85,7 @@ const MessagingView = React.lazy(() => import('./components/MessagingView'));
 const PatientMessagingView = React.lazy(() => import('./components/PatientMessagingView'));
 const RecallsView = React.lazy(() => import('./components/RecallsView'));
 const ExpensesView = React.lazy(() => import('./components/ExpensesView'));
+const BlogView = React.lazy(() => import('./components/BlogView'));
 
 const ALL_BRANCHES_VALUE = '__all_branches__';
 
@@ -109,6 +112,37 @@ const getDefaultExpenseFormData = (): Partial<Expense> => ({
   amount: 0,
   category: '',
   date: new Date().toISOString().split('T')[0]
+});
+
+const getCurrentLocalDateTimeInput = (): string => {
+  const now = new Date();
+  const localNow = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return localNow.toISOString().slice(0, 16);
+};
+
+const toLocalDateTimeInputValue = (value?: string): string => {
+  if (!value) return getCurrentLocalDateTimeInput();
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return getCurrentLocalDateTimeInput();
+  }
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return localDate.toISOString().slice(0, 16);
+};
+
+const toIsoFromLocalDateTimeInput = (value: string): string => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return new Date().toISOString();
+  }
+  return date.toISOString();
+};
+
+const getDefaultBlogFormData = (): Partial<BlogPost> => ({
+  title: '',
+  content: '',
+  published: false,
+  published_at: getCurrentLocalDateTimeInput()
 });
 
 const App: React.FC = () => {
@@ -167,6 +201,7 @@ const App: React.FC = () => {
   const [loyaltyRules, setLoyaltyRules] = useState<LoyaltyRule[]>([]);
   const [loyaltyTransactions, setLoyaltyTransactions] = useState<LoyaltyTransaction[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [medicineSales, setMedicineSales] = useState<MedicineSale[]>([]);
   const [recalls, setRecalls] = useState<Recall[]>([]);
   const scheduledTaskProcessorRef = React.useRef<boolean>(false);
@@ -186,6 +221,7 @@ const App: React.FC = () => {
   const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [editingBlog, setEditingBlog] = useState<BlogPost | null>(null);
   
   // -- Modals State --
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -198,6 +234,7 @@ const App: React.FC = () => {
   const [showUserModal, setShowUserModal] = useState(false);
   const [showMedicineModal, setShowMedicineModal] = useState(false);
   const [showMedicineSelectionModal, setShowMedicineSelectionModal] = useState(false);
+  const [showBlogModal, setShowBlogModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info'; show: boolean }>({ message: '', type: 'success', show: false });
   const [userFormError, setUserFormError] = useState<string | null>(null);
@@ -262,6 +299,9 @@ const App: React.FC = () => {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [newMedicineData, setNewMedicineData] = useState<Partial<Medicine>>({ name: '', description: '', unit: 'pack', price: 0, stock: 0, min_stock: 0, category: '' });
   const [newExpenseData, setNewExpenseData] = useState<Partial<Expense>>(getDefaultExpenseFormData());
+  const [newBlogData, setNewBlogData] = useState<Partial<BlogPost>>(getDefaultBlogFormData());
+  const [newBlogImageFile, setNewBlogImageFile] = useState<File | null>(null);
+  const [newBlogImagePreview, setNewBlogImagePreview] = useState<string>('');
   const emailSettings = useMemo(() => loadEmailSettings(), []);
 
   const applySessionState = (session: ReturnType<typeof auth.getSession>) => {
@@ -617,7 +657,7 @@ const App: React.FC = () => {
       
       // Only fetch data if we have a valid location
       if (locId) {
-        const [patData, aptData, docData, typeData, recordsData, medData, loyaltyData, expenseData, recallData, salesData] = await Promise.all([
+        const [patData, aptData, docData, typeData, recordsData, medData, loyaltyData, expenseData, blogData, recallData, salesData] = await Promise.all([
           api.patients.getAll(locId),
           api.appointments.getAll(locId),
           api.doctors.getAll(locId),
@@ -626,6 +666,7 @@ const App: React.FC = () => {
           api.medicines.getAll(locId),
           api.loyalty.getRules(locId),
           api.expenses.getAll(locId),
+          api.blogs.getAll(locId),
           api.recalls.getAll(locId),
           api.medicines.getSales(locId)
         ]);
@@ -637,6 +678,7 @@ const App: React.FC = () => {
         setMedicines(medData);
         setLoyaltyRules(loyaltyData);
         setExpenses(expenseData);
+        setBlogPosts(blogData);
         setRecalls(recallData);
         setMedicineSales(salesData);
       }
@@ -757,6 +799,9 @@ const App: React.FC = () => {
       fetchExpenses();
       fetchMedicineSales();
     }
+    if (currentView === 'blog' && canAccessView('blog')) {
+      fetchBlogs();
+    }
     if (currentView === 'ai-assistant' && canAccessView('ai-assistant')) {
       fetchAssistantData().catch(err => {
         console.warn('Error fetching AI assistant data:', err);
@@ -812,6 +857,19 @@ const App: React.FC = () => {
       setExpenses(expenseData);
     } catch (err: any) {
       console.warn('Error fetching expenses:', err);
+    }
+  };
+
+  const fetchBlogs = async () => {
+    try {
+      if (!currentLocationId) {
+        setBlogPosts([]);
+        return;
+      }
+      const blogData = await api.blogs.getAll(currentLocationId);
+      setBlogPosts(blogData);
+    } catch (err: any) {
+      console.warn('Error fetching blog posts:', err);
     }
   };
 
@@ -1174,6 +1232,79 @@ const App: React.FC = () => {
     try {
       await api.expenses.delete(id);
       fetchExpenses();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleCreateBlog = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      if (!currentLocationId) {
+        throw new Error('Please select a clinic location before publishing a blog post.');
+      }
+      let imageUrl = editingBlog?.image_url || '';
+      if (newBlogImageFile) {
+        imageUrl = await api.blogs.uploadImage(newBlogImageFile, currentLocationId);
+      }
+      const publishDateTimeInput = newBlogData.published_at || getCurrentLocalDateTimeInput();
+      const payload: Partial<BlogPost> = {
+        title: newBlogData.title?.trim() || '',
+        content: newBlogData.content?.trim() || '',
+        published: !!newBlogData.published,
+        author: newBlogData.author || currentUser,
+        image_url: imageUrl || undefined,
+        published_at: newBlogData.published ? toIsoFromLocalDateTimeInput(publishDateTimeInput) : null,
+        location_id: currentLocationId
+      };
+      if (!payload.title || !payload.content) {
+        throw new Error('Please provide a title and content for the blog post.');
+      }
+      if (editingBlog) {
+        await api.blogs.update(editingBlog.id, payload);
+      } else {
+        await api.blogs.create(payload);
+      }
+      setShowBlogModal(false);
+      setEditingBlog(null);
+      setNewBlogData(getDefaultBlogFormData());
+      handleBlogImageChange(null);
+      fetchBlogs();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteBlog = async (id: string) => {
+    try {
+      await api.blogs.delete(id);
+      fetchBlogs();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleBlogImageChange = (file?: File | null) => {
+    if (newBlogImagePreview) {
+      URL.revokeObjectURL(newBlogImagePreview);
+    }
+    if (!file) {
+      setNewBlogImageFile(null);
+      setNewBlogImagePreview('');
+      return;
+    }
+    setNewBlogImageFile(file);
+    setNewBlogImagePreview(URL.createObjectURL(file));
+  };
+
+  const handleToggleBlogPublish = async (post: BlogPost, published: boolean) => {
+    try {
+      await api.blogs.update(post.id, { published });
+      fetchBlogs();
     } catch (err: any) {
       alert(err.message);
     }
@@ -1796,6 +1927,9 @@ const App: React.FC = () => {
              {canAccessView('users') && (
                <NavItem icon={<Shield size={18} />} label="Users" active={currentView === 'users'} onClick={() => { setCurrentView('users'); setIsMobileMenuOpen(false); }} />
              )}
+             {canAccessView('blog') && (
+               <NavItem icon={<BookOpen size={18} />} label="Blog" active={currentView === 'blog'} onClick={() => { setCurrentView('blog'); setIsMobileMenuOpen(false); }} />
+             )}
              {canAccessView('settings') && (
                <NavItem icon={<Settings size={18} />} label="Settings" active={currentView === 'settings'} onClick={() => { setCurrentView('settings'); setIsMobileMenuOpen(false); }} />
              )}
@@ -1892,6 +2026,16 @@ const App: React.FC = () => {
                 onAdd={() => {setEditingExpense(null); setNewExpenseData(getDefaultExpenseFormData()); setShowExpenseModal(true);}}
                 onEdit={(expense) => {setEditingExpense(expense); setNewExpenseData({ description: expense.description, amount: expense.amount, category: expense.category, date: expense.date }); setShowExpenseModal(true);}}
                 onDelete={handleDeleteExpense}
+              />
+            )}
+            {currentView === 'blog' && canAccessView('blog') && (
+              <BlogView
+                posts={blogPosts}
+                loading={loading}
+                onAdd={() => { setEditingBlog(null); setNewBlogData(getDefaultBlogFormData()); handleBlogImageChange(null); setShowBlogModal(true); }}
+                onEdit={(post) => { setEditingBlog(post); setNewBlogData({ title: post.title, content: post.content, published: post.published, author: post.author, published_at: toLocalDateTimeInputValue(post.published_at || post.created_at), image_url: post.image_url }); handleBlogImageChange(null); setShowBlogModal(true); }}
+                onDelete={handleDeleteBlog}
+                onTogglePublish={handleToggleBlogPublish}
               />
             )}
             {currentView === 'users' && canAccessView('users') && <UsersView users={users} loading={loading} isAdmin={isAdmin} onAdd={() => {setEditingUser(null); setUserFormError(null); setNewUserData(getDefaultUserFormData()); setShowUserModal(true)}} onEdit={(user) => {setEditingUser(user); setUserFormError(null); setNewUserData({ username: user.username, password: '', role: user.role, location_id: user.location_id, allowed_tabs: resolveAllowedTabs(user.role, user.allowed_tabs) }); setShowUserModal(true)}} onDelete={handleDeleteUser} />}
@@ -2476,6 +2620,75 @@ const App: React.FC = () => {
             />
             <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-600/20">
               {editingExpense ? 'Update Expense' : 'Create Expense'}
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      {showBlogModal && (
+        <Modal title={editingBlog ? "Edit Blog Post" : "New Blog Post"} onClose={() => {setShowBlogModal(false); setEditingBlog(null); setNewBlogData(getDefaultBlogFormData()); handleBlogImageChange(null);}}>
+          <form onSubmit={handleCreateBlog} className="space-y-5">
+            <Input
+              label="Title"
+              required
+              value={newBlogData.title || ''}
+              onChange={(e: any) => setNewBlogData({ ...newBlogData, title: e.target.value })}
+              placeholder="e.g., New Smile Care Tips"
+            />
+            <div>
+              <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">Photo</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e: any) => handleBlogImageChange(e.target.files?.[0] || null)}
+                className="w-full border-gray-200 border rounded-xl p-3 text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+              />
+              {newBlogImagePreview ? (
+                <img
+                  src={newBlogImagePreview}
+                  alt="Blog preview"
+                  className="mt-3 w-full rounded-2xl border border-gray-100 object-cover max-h-48"
+                />
+              ) : newBlogData.image_url ? (
+                <img
+                  src={newBlogData.image_url}
+                  alt="Blog"
+                  className="mt-3 w-full rounded-2xl border border-gray-100 object-cover max-h-48"
+                />
+              ) : null}
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-gray-500 uppercase mb-1.5">Content</label>
+              <textarea
+                className="w-full border-gray-200 border rounded-xl p-3 text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
+                rows={8}
+                value={newBlogData.content || ''}
+                onChange={(e: any) => setNewBlogData({ ...newBlogData, content: e.target.value })}
+                placeholder="Write the full blog post here..."
+              />
+            </div>
+            <Input
+              label="Author (Optional)"
+              value={newBlogData.author || currentUser}
+              onChange={(e: any) => setNewBlogData({ ...newBlogData, author: e.target.value })}
+            />
+            <Input
+              label="Publish Date & Time"
+              type="datetime-local"
+              value={newBlogData.published_at || ''}
+              onChange={(e: any) => setNewBlogData({ ...newBlogData, published_at: e.target.value })}
+            />
+            <label className="flex items-center gap-3 text-sm font-medium text-gray-700">
+              <input
+                type="checkbox"
+                checked={!!newBlogData.published}
+                onChange={(e: any) => setNewBlogData({ ...newBlogData, published: e.target.checked })}
+                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              Publish immediately
+            </label>
+            <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-600/20">
+              {editingBlog ? 'Update Post' : 'Create Post'}
             </button>
           </form>
         </Modal>

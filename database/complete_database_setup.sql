@@ -20,6 +20,7 @@ DROP TABLE IF EXISTS messages CASCADE;
 DROP TABLE IF EXISTS conversations CASCADE;
 DROP TABLE IF EXISTS medicine_sales CASCADE;
 DROP TABLE IF EXISTS medicines CASCADE;
+DROP TABLE IF EXISTS blog_posts CASCADE;
 DROP TABLE IF EXISTS scheduled_tasks CASCADE;
 DROP TABLE IF EXISTS assistant_memory CASCADE;
 DROP TABLE IF EXISTS otp_codes CASCADE;
@@ -216,6 +217,20 @@ CREATE TABLE expenses (
   amount DECIMAL(12,2) NOT NULL,
   category VARCHAR(100),
   date DATE DEFAULT CURRENT_DATE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Blog Posts
+CREATE TABLE blog_posts (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  location_id UUID REFERENCES locations(id),
+  title VARCHAR(255) NOT NULL,
+  content TEXT NOT NULL,
+  author VARCHAR(255),
+  image_url TEXT,
+  published BOOLEAN DEFAULT false,
+  published_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
