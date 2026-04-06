@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Calendar, FileText, User, LogOut, Settings, Plus, Trash2, Download, Eye, EyeOff, MessageCircle, X, Info } from 'lucide-react';
+import { Home, Calendar, FileText, User, LogOut, Settings, Plus, Trash2, Download, Eye, EyeOff, MessageCircle, X, Info, BookOpen } from 'lucide-react';
 import { auth } from '../services/auth';
 import { api } from '../services/api';
 import { otpService } from '../services/otp';
-import { Patient, Appointment, ClinicalRecord, Doctor } from '../types';
+import { Patient, Appointment, ClinicalRecord, Doctor, BlogPost } from '../types';
 import { Modal, Input } from './Shared';
 import Receipt from './Receipt';
 import PatientMessagingView from './PatientMessagingView';
@@ -14,10 +14,11 @@ interface PatientDashboardProps {
 }
 
 const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout, messagingEnabled = true }) => {
-  const [activeTab, setActiveTab] = useState<'home' | 'appointments' | 'records' | 'profile' | 'messages'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'appointments' | 'records' | 'blog' | 'profile' | 'messages'>('home');
   const [patient, setPatient] = useState<Patient | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [treatmentRecords, setTreatmentRecords] = useState<ClinicalRecord[]>([]);
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -48,6 +49,8 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout, messaging
   // State for treatment details modal
   const [showTreatmentDetails, setShowTreatmentDetails] = useState(false);
   const [selectedTreatmentDetails, setSelectedTreatmentDetails] = useState<ClinicalRecord | null>(null);
+  const [selectedBlog, setSelectedBlog] = useState<BlogPost | null>(null);
+  const [showBlogModal, setShowBlogModal] = useState(false);
   
   // State for password change
   const [changingPassword, setChangingPassword] = useState(false);
@@ -114,6 +117,10 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout, messaging
       // Fetch doctors
       const allDoctors = await api.doctors.getAll(patientData.location_id);
       setDoctors(allDoctors);
+
+      // Fetch published blog posts
+      const blogs = await api.blogs.getPublished(patientData.location_id);
+      setBlogPosts(blogs);
       
     } catch (err: any) {
       setError(err.message || 'Failed to load patient data');
@@ -258,6 +265,34 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout, messaging
   const handleDownloadReceipt = (treatment: ClinicalRecord) => {
     setSelectedTreatmentDetails(treatment);
     setShowTreatmentDetails(true);
+  };
+
+  const formatBlogDate = (value?: string) => {
+    if (!value) return 'Unknown date';
+    const date = new Date(value);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+  };
+
+  const getBlogExcerpt = (value: string, limit = 140) => {
+    const normalized = value.replace(/\s+/g, ' ').trim();
+    if (normalized.length <= limit) return normalized;
+    return `${normalized.slice(0, limit).trimEnd()}...`;
+  };
+
+  const openBlogPost = (post: BlogPost) => {
+    setSelectedBlog(post);
+    setShowBlogModal(true);
+  };
+
+  const closeBlogPost = () => {
+    setShowBlogModal(false);
+    setSelectedBlog(null);
   };
   
   const handleDoctorChange = async (doctorId: string) => {
@@ -669,6 +704,49 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout, messaging
           </div>
         )}
 
+        {activeTab === 'blog' && (
+          <div className="px-4 space-y-4">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+              <h2 className="font-semibold text-gray-900 text-sm">Clinic Blog</h2>
+              <p className="text-xs text-gray-500 mt-1">Latest updates from your dental team.</p>
+            </div>
+            {blogPosts.length > 0 ? (
+              <div className="space-y-4">
+                {blogPosts.map(post => (
+                  <button
+                    key={post.id}
+                    onClick={() => openBlogPost(post)}
+                    className="w-full text-left bg-white rounded-2xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    {post.image_url && (
+                      <img
+                        src={post.image_url}
+                        alt={post.title}
+                        className="w-full max-h-40 rounded-2xl object-cover border border-gray-100 mb-3"
+                      />
+                    )}
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-sm font-semibold text-gray-900">{post.title}</h3>
+                      <span className="text-[10px] font-semibold text-gray-500">{formatBlogDate(post.published_at || post.created_at)}</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">{post.author ? `By ${post.author}` : 'Clinic Team'}</p>
+                    <p className="text-sm text-gray-600 mt-3">{getBlogExcerpt(post.content)}</p>
+                    <span className="inline-flex items-center gap-1 text-indigo-600 text-xs font-semibold mt-3">
+                      Read more
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-8 text-center">
+                <BookOpen className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                <h3 className="text-sm font-medium text-gray-900 mb-2">No blog posts yet</h3>
+                <p className="text-gray-500 text-sm">Check back soon for clinic updates.</p>
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === 'profile' && (
           <div className="px-4">
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
@@ -781,6 +859,19 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout, messaging
           >
             <FileText className="w-6 h-6 mb-1" />
             <span className="text-[10px]">Records</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('blog')}
+            className={`flex flex-col items-center py-2 px-2 rounded-xl transition-colors flex-1 max-w-[80px] ${
+              activeTab === 'blog' 
+                ? 'text-indigo-600 bg-indigo-50' 
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+            aria-label="Blog"
+          >
+            <BookOpen className="w-6 h-6 mb-1" />
+            <span className="text-[10px]">Blog</span>
           </button>
 
           {messagingEnabled && (
@@ -1137,6 +1228,24 @@ const PatientDashboard: React.FC<PatientDashboardProps> = ({ onLogout, messaging
             </div>
           </div>
         </div>
+      )}
+
+      {showBlogModal && selectedBlog && (
+        <Modal title={selectedBlog.title} onClose={closeBlogPost}>
+          <div className="space-y-4">
+            <p className="text-xs text-gray-500">
+              {selectedBlog.author ? `By ${selectedBlog.author}` : 'Clinic Team'} • {formatBlogDate(selectedBlog.published_at || selectedBlog.created_at)}
+            </p>
+            {selectedBlog.image_url && (
+              <img
+                src={selectedBlog.image_url}
+                alt={selectedBlog.title}
+                className="w-full rounded-2xl border border-gray-100 object-cover max-h-64"
+              />
+            )}
+            <div className="text-sm text-gray-700 whitespace-pre-wrap">{selectedBlog.content}</div>
+          </div>
+        </Modal>
       )}
       
       {/* Receipt Modal */}

@@ -197,6 +197,19 @@ export interface Expense {
   updated_at?: string;
 }
 
+export interface BlogPost {
+  id: string;
+  location_id: string;
+  title: string;
+  content: string;
+  author?: string;
+  image_url?: string;
+  published: boolean;
+  published_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface Message {
   id: string;
   sender_id: string;
